@@ -238,8 +238,10 @@ export function EditorCanvas() {
 
   const dragMoveRef = useRef(onDragMove)
   const dragEndRef = useRef(onDragEnd)
-  dragMoveRef.current = onDragMove
-  dragEndRef.current = onDragEnd
+  useLayoutEffect(() => {
+    dragMoveRef.current = onDragMove
+    dragEndRef.current = onDragEnd
+  })
 
   const onTransform = () => {
     const tr = trRef.current
