@@ -76,7 +76,7 @@ export function useEditorShortcuts(openExport: () => void) {
         addText('heading')
       } else if (!mod && (k === ']' || k === '[')) {
         handled()
-        sel.forEach((id) => st.arrange(id, k === ']' ? (e.shiftKey ? 'front' : 'forward') : e.shiftKey ? 'back' : 'backward'))
+        st.arrange(sel, k === ']' ? (e.shiftKey ? 'front' : 'forward') : e.shiftKey ? 'back' : 'backward')
       } else if (!mod && k === 'enter' && sel.length === 1) {
         const l = findLayer(st.project, sel[0])?.layer
         if (l?.type === 'text') {

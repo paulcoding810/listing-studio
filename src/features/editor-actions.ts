@@ -2,7 +2,7 @@ import { toast } from '@/components/ui/toast'
 import { frameForPlatform, getFrame } from '@/frames'
 import { deviceAspect } from '@/features/device-paint'
 import { importImageFile, AssetError } from '@/lib/assets'
-import { findLayer } from '@/lib/doc'
+import { findLayer, walkLayers } from '@/lib/doc'
 import { createDevice, createImage, createShape, createText, createZoom, type TextPreset } from '@/lib/factory'
 import { getTarget } from '@/targets'
 import { selectActive, useEditor } from '@/store/editor-store'
@@ -10,6 +10,7 @@ import type { Layer, ShapeKind } from '@/types/project'
 import { nodeRectInParent } from './canvas/stage-registry'
 
 let clipboard: Layer[] = []
+let clipboardStrings: Record<string, Record<string, string>> = {}
 
 const active = () => {
   const s = useEditor.getState()
@@ -99,11 +100,16 @@ export function copySelection() {
   const s = useEditor.getState()
   if (!s.project) return
   clipboard = s.selectedIds.map((id) => findLayer(s.project!, id)?.layer).filter((l): l is Layer => !!l).map((l) => structuredClone(l))
+  const ids = new Set<string>()
+  walkLayers(clipboard, (l) => ids.add(l.id))
+  clipboardStrings = Object.fromEntries(
+    Object.entries(s.project.strings).map(([loc, table]) => [loc, Object.fromEntries(Object.entries(table).filter(([id]) => ids.has(id)))]),
+  )
   if (clipboard.length) toast.info(`Copied ${clipboard.length} layer${clipboard.length > 1 ? 's' : ''}`)
 }
 
 export function pasteClipboard() {
-  if (clipboard.length) useEditor.getState().pasteLayers(clipboard)
+  if (clipboard.length) useEditor.getState().pasteLayers(clipboard, clipboardStrings)
   return clipboard.length > 0
 }
 

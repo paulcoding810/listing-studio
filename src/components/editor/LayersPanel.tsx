@@ -140,8 +140,8 @@ export function LayersPanel() {
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-0.5 border-b border-border px-2 py-1.5">
         {action('Duplicate', <CopyPlus className="size-3.5" />, () => st.duplicateLayers(selectedIds))}
-        {action('Bring to front', <ArrowUpToLine className="size-3.5" />, () => selectedIds.forEach((id) => st.arrange(id, 'front')))}
-        {action('Send to back', <ArrowDownToLine className="size-3.5" />, () => selectedIds.forEach((id) => st.arrange(id, 'back')))}
+        {action('Bring to front', <ArrowUpToLine className="size-3.5" />, () => st.arrange(selectedIds, 'front'))}
+        {action('Send to back', <ArrowDownToLine className="size-3.5" />, () => st.arrange(selectedIds, 'back'))}
         {action('Delete', <Trash2 className="size-3.5" />, () => st.deleteLayers(selectedIds))}
         <div className="flex-1" />
         {loc.spread.pages.length > 1 &&

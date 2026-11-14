@@ -39,6 +39,7 @@ export interface EditorState {
   setPan: (pan: { x: number; y: number }) => void
   toggleGrid: () => void
   setLocale: (l: string) => void
+  removeLocale: (l: string) => void
   setSaveStatus: (s: SaveStatus, at?: number) => void
   setEditingText: (id: string | null) => void
   setIconMask: (m: IconMask) => void
@@ -53,10 +54,10 @@ export interface EditorState {
   addLayer: (layer: Layer, where?: 'page' | 'shared') => void
   deleteLayers: (ids: string[]) => void
   duplicateLayers: (ids: string[], offset?: number) => void
-  pasteLayers: (layers: Layer[]) => void
+  pasteLayers: (layers: Layer[], strings?: StringsSnapshot) => void
   groupLayers: (ids: string[], bbox: Rect) => void
   ungroup: (id: string) => void
-  arrange: (id: string, dir: 'forward' | 'backward' | 'front' | 'back') => void
+  arrange: (ids: string[], dir: ArrangeDir) => void
   moveLayerTo: (id: string, targetId: string, position: 'before' | 'after') => void
   moveToContainer: (id: string, where: 'shared' | 'page') => void
   renameLayer: (id: string, name: string) => void
@@ -75,14 +76,28 @@ export interface EditorState {
   setTheme: (theme: Theme) => void
 }
 
+let lastHistoryWrite = -Infinity
+
+/** Coalesces bursts of edits into one undo step; undo/redo start a fresh burst. */
 function leadingThrottle<A extends unknown[]>(fn: (...a: A) => void, ms: number) {
-  let last = 0
   return (...a: A) => {
     const now = performance.now()
-    if (now - last > ms) fn(...a)
-    last = now
+    if (now - lastHistoryWrite > ms) fn(...a)
+    lastHistoryWrite = now
   }
 }
+
+function resetHistoryThrottle() {
+  lastHistoryWrite = -Infinity
+}
+
+export type ArrangeDir = 'forward' | 'backward' | 'front' | 'back'
+
+export function effectiveLocale(p: Project, locale: string) {
+  return p.locales.includes(locale) ? locale : p.locales[0]
+}
+
+export type StringsSnapshot = Project['strings']
 
 const activeContainer = (s: EditorState, p: Project, where: 'page' | 'shared'): { spread: Spread; layers: Layer[] } | undefined => {
   const loc = s.activePageId ? locatePage(p, s.activePageId) : undefined
@@ -158,6 +173,14 @@ export const useEditor = create<EditorState>()(
         set((s) => {
           s.activeLocale = l
         }),
+      removeLocale: (l) =>
+        set((s) => {
+          const p = s.project as Project | null
+          if (!p || p.locales[0] === l) return
+          p.locales = p.locales.filter((x) => x !== l)
+          delete p.strings[l]
+          if (s.activeLocale === l) s.activeLocale = p.locales[0]
+        }),
       setSaveStatus: (st, at) =>
         set((s) => {
           s.saveStatus = st
@@ -200,9 +223,10 @@ export const useEditor = create<EditorState>()(
           if (!p) return
           const loc = findLayer(p, id)
           if (!loc || loc.layer.type !== 'text') return
-          const def = p.locales[0]
-          if (s.activeLocale === def || !loc.layer.localizable) loc.layer.text = text
-          else (p.strings[s.activeLocale] ??= {})[id] = text
+          const locale = effectiveLocale(p, s.activeLocale)
+          if (locale === p.locales[0] || !loc.layer.localizable) loc.layer.text = text
+          else if (text === '') delete p.strings[locale]?.[id]
+          else (p.strings[locale] ??= {})[id] = text
         }),
       addLayer: (layer, where = 'page') =>
         set((s) => {
@@ -217,12 +241,15 @@ export const useEditor = create<EditorState>()(
         set((s) => {
           const p = s.project as Project | null
           if (!p) return
+          const removed = new Set<string>()
           for (const id of ids) {
             const loc = findLayer(p, id)
-            if (loc && !loc.layer.locked) loc.container.splice(loc.container.indexOf(loc.layer), 1)
+            if (!loc || loc.layer.locked) continue
+            loc.container.splice(loc.container.indexOf(loc.layer), 1)
+            walkLayers([loc.layer as Layer], (l) => removed.add(l.id))
           }
-          for (const t of Object.values(p.strings)) ids.forEach((id) => delete t[id])
-          s.selectedIds = s.selectedIds.filter((id) => !ids.includes(id))
+          for (const t of Object.values(p.strings)) removed.forEach((id) => delete t[id])
+          s.selectedIds = s.selectedIds.filter((id) => !removed.has(id))
         }),
       duplicateLayers: (ids, offset = 32) =>
         set((s) => {
@@ -244,7 +271,7 @@ export const useEditor = create<EditorState>()(
           copyStrings(p.strings, idMap)
           s.selectedIds = next
         }),
-      pasteLayers: (layers) =>
+      pasteLayers: (layers, strings = {}) =>
         set((s) => {
           const p = s.project as Project | null
           if (!p) return
@@ -258,6 +285,10 @@ export const useEditor = create<EditorState>()(
             return copy
           })
           remapZoomSources(copies, idMap)
+          for (const [locale, table] of Object.entries(strings)) {
+            if (!p.locales.includes(locale)) continue
+            for (const [from, to] of idMap) if (table[from] !== undefined) (p.strings[locale] ??= {})[to] = table[from]
+          }
           c.layers.push(...copies)
           s.selectedIds = copies.map((l) => l.id)
         }),
@@ -314,17 +345,32 @@ export const useEditor = create<EditorState>()(
           loc.container.splice(idx, 1, ...kids)
           s.selectedIds = kids.map((k) => k.id)
         }),
-      arrange: (id, dir) =>
+      arrange: (ids, dir) =>
         set((s) => {
           const p = s.project as Project | null
           if (!p) return
-          const loc = findLayer(p, id)
-          if (!loc) return
-          const c = loc.container
-          const i = c.indexOf(loc.layer)
-          const [item] = c.splice(i, 1)
-          const to = dir === 'front' ? c.length : dir === 'back' ? 0 : dir === 'forward' ? Math.min(c.length, i + 1) : Math.max(0, i - 1)
-          c.splice(to, 0, item)
+          const byContainer = new Map<Layer[], Set<string>>()
+          for (const id of ids) {
+            const loc = findLayer(p, id)
+            if (!loc) continue
+            const set = byContainer.get(loc.container) ?? new Set<string>()
+            set.add(id)
+            byContainer.set(loc.container, set)
+          }
+          for (const [c, sel] of byContainer) {
+            const isSel = (l: Layer) => sel.has(l.id)
+            if (dir === 'front' || dir === 'back') {
+              const picked = c.filter(isSel)
+              const rest = c.filter((l) => !isSel(l))
+              c.splice(0, c.length, ...(dir === 'front' ? [...rest, ...picked] : [...picked, ...rest]))
+            } else if (dir === 'forward') {
+              for (let i = c.length - 2; i >= 0; i--)
+                if (isSel(c[i]) && !isSel(c[i + 1])) [c[i], c[i + 1]] = [c[i + 1], c[i]]
+            } else {
+              for (let i = 1; i < c.length; i++)
+                if (isSel(c[i]) && !isSel(c[i - 1])) [c[i], c[i - 1]] = [c[i - 1], c[i]]
+            }
+          }
         }),
       moveLayerTo: (id, targetId, position) =>
         set((s) => {
@@ -332,7 +378,7 @@ export const useEditor = create<EditorState>()(
           if (!p || id === targetId) return
           const from = findLayer(p, id)
           const to = findLayer(p, targetId)
-          if (!from || !to) return
+          if (!from || !to || from.spread !== to.spread) return
           let isAncestor = false
           if (from.layer.type === 'group') walkLayers(from.layer.children, (l) => (isAncestor ||= l.id === targetId))
           if (isAncestor) return
@@ -345,6 +391,8 @@ export const useEditor = create<EditorState>()(
             item.x += from.parent.x
             item.y += from.parent.y
           }
+          const pageOffset = (pg?: Page) => (pg ? from.spread.pages.indexOf(pg) * from.spread.width : 0)
+          item.x += pageOffset(from.page) - pageOffset(to.page)
           const ti = to.container.indexOf(to.layer)
           to.container.splice(position === 'after' ? ti + 1 : ti, 0, item)
         }),
@@ -495,10 +543,12 @@ export function useHistory<T>(selector: (s: { pastStates: unknown[]; futureState
 
 export const undo = () => {
   useEditor.temporal.getState().undo()
+  resetHistoryThrottle()
   sanitizeSelection()
 }
 export const redo = () => {
   useEditor.temporal.getState().redo()
+  resetHistoryThrottle()
   sanitizeSelection()
 }
 
@@ -511,11 +561,13 @@ function sanitizeSelection() {
   useEditor.setState({
     selectedIds: valid,
     activePageId: pageOk ? s.activePageId : (p.spreads[0]?.pages[0]?.id ?? null),
+    activeLocale: effectiveLocale(p, s.activeLocale),
   })
 }
 
 export function resetHistory() {
   useEditor.temporal.getState().clear()
+  resetHistoryThrottle()
 }
 
 export function selectActive(s: EditorState) {

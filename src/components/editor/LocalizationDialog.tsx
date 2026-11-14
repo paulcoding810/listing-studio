@@ -69,12 +69,7 @@ export function LocalizationDialog({ open, onOpenChange }: { open: boolean; onOp
                 type="button"
                 className="cursor-pointer text-subtle hover:text-danger"
                 aria-label={`Remove ${l}`}
-                onClick={() =>
-                  st.mutate((p) => {
-                    p.locales = p.locales.filter((x) => x !== l)
-                    delete p.strings[l]
-                  })
-                }
+                onClick={() => st.removeLocale(l)}
               >
                 <X className="size-3" />
               </button>

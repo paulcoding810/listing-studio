@@ -23,8 +23,9 @@ export function useRender(): RenderCtx {
 }
 
 export function textFor(ctx: Pick<RenderCtx, 'project' | 'locale'>, l: TextLayer): string {
-  const def = ctx.project.locales[0]
-  const raw = ctx.locale !== def && l.localizable ? (ctx.project.strings[ctx.locale]?.[l.id] ?? l.text) : l.text
+  const locale = ctx.project.locales.includes(ctx.locale) ? ctx.locale : ctx.project.locales[0]
+  const translated = locale !== ctx.project.locales[0] && l.localizable ? ctx.project.strings[locale]?.[l.id] : undefined
+  const raw = translated || l.text
   return l.uppercase ? raw.toUpperCase() : raw
 }
 

@@ -51,10 +51,10 @@ export function CanvasContextMenu({ x, y, onClose }: { x: number; y: number; onC
           {item(<ClipboardPaste />, 'Paste', () => pasteClipboard(), { shortcut: `${modKey}V` })}
           {item(<CopyPlus />, 'Duplicate', () => st.duplicateLayers(ids), { shortcut: `${modKey}D` })}
           {sep}
-          {item(<ArrowUpToLine />, 'Bring to front', () => ids.forEach((id) => st.arrange(id, 'front')), { shortcut: ']' })}
-          {item(<ChevronUp />, 'Bring forward', () => ids.forEach((id) => st.arrange(id, 'forward')))}
-          {item(<ChevronDown />, 'Send backward', () => ids.forEach((id) => st.arrange(id, 'backward')))}
-          {item(<ArrowDownToLine />, 'Send to back', () => ids.forEach((id) => st.arrange(id, 'back')), { shortcut: '[' })}
+          {item(<ArrowUpToLine />, 'Bring to front', () => st.arrange(ids, 'front'), { shortcut: ']' })}
+          {item(<ChevronUp />, 'Bring forward', () => st.arrange(ids, 'forward'))}
+          {item(<ChevronDown />, 'Send backward', () => st.arrange(ids, 'backward'))}
+          {item(<ArrowDownToLine />, 'Send to back', () => st.arrange(ids, 'back'), { shortcut: '[' })}
           {sep}
           {item(<Group />, 'Group', groupSelection, { shortcut: `${modKey}G`, disabled: layers.length < 2 })}
           {item(<Ungroup />, 'Ungroup', ungroupSelection, { shortcut: `${modKey}⇧G`, disabled: single?.type !== 'group' })}

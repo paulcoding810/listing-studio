@@ -29,7 +29,7 @@ import { FRAMES, getFrame } from '@/frames'
 import { importImageFile } from '@/lib/assets'
 import { blobPoints, shadow as defaultShadow, TEXT_PRESETS, type TextPreset } from '@/lib/factory'
 import { cn } from '@/lib/utils'
-import { useEditor } from '@/store/editor-store'
+import { effectiveLocale, useEditor } from '@/store/editor-store'
 import type { DeviceLayer, ImageLayer, Layer, PerspectivePreset, Project, Shadow, ShapeLayer, TextLayer, ZoomLayer } from '@/types/project'
 import { ColorField, ColorPicker, FillEditor, NumberField, Row, Section, SliderField } from './controls'
 import { FontSelect } from './ThemeEditor'
@@ -145,7 +145,7 @@ const WEIGHTS = [
 ]
 
 function TextSection({ l, project }: { l: TextLayer; project: Project }) {
-  const locale = useEditor((s) => s.activeLocale)
+  const locale = effectiveLocale(project, useEditor((s) => s.activeLocale))
   const def = project.locales[0]
   const translating = locale !== def && l.localizable
   const value = translating ? (project.strings[locale]?.[l.id] ?? '') : l.text
