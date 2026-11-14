@@ -5,7 +5,7 @@ import { Logo } from '@/components/Logo'
 import { Button } from '@/components/ui/button'
 import { Select, Tip } from '@/components/ui/primitives'
 import { stageRegistry } from '@/features/canvas/stage-registry'
-import { addDevice, addText, uploadImages } from '@/features/editor-actions'
+import { addDevice, addText, selectedDeviceId, uploadImages } from '@/features/editor-actions'
 import { cn, modKey, timeAgo } from '@/lib/utils'
 import { redo, undo, useEditor, useHistory } from '@/store/editor-store'
 import { localeName } from './LocalizationDialog'
@@ -96,7 +96,7 @@ export function Toolbar({ onExport, onPreview }: { onExport: () => void; onPrevi
         onChange={(e) => {
           const files = [...(e.target.files ?? [])]
           e.target.value = ''
-          void uploadImages(files)
+          void uploadImages(files, { deviceId: selectedDeviceId() })
         }}
       />
       <Tip label="Add device frame">

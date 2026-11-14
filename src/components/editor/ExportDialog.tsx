@@ -12,6 +12,8 @@ import { getStore, getTarget } from '@/targets'
 import { useEditor } from '@/store/editor-store'
 import { localeName } from './LocalizationDialog'
 import { ICON_VARIANTS, isMasterIcon } from '@/features/icons'
+import { lintProject } from '@/lib/lint'
+import { TriangleAlert } from 'lucide-react'
 import type { ExportDefaults } from '@/pages/Settings'
 
 export function ExportDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
@@ -50,7 +52,21 @@ export function ExportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
     return out
   }, [project, selected, locales, variants])
 
+  const warnings = useMemo(
+    () => (project ? lintProject(project, selected, project.locales.filter((l) => locales.has(l))) : []),
+    [project, selected, locales],
+  )
+  const [showAll, setShowAll] = useState(false)
+
   if (!project) return null
+
+  const jump = (pageId: string, layerId?: string, locale?: string) => {
+    const st = useEditor.getState()
+    onOpenChange(false)
+    st.setActivePage(pageId)
+    if (locale) st.setLocale(locale)
+    if (layerId) st.select([layerId])
+  }
 
   const toggle = (id: string) => setSelected((s) => {
     const n = new Set(s)
@@ -106,6 +122,34 @@ export function ExportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
     >
       <div className="grid gap-6 md:grid-cols-[1fr_300px]">
         <div className="space-y-4">
+          {warnings.length > 0 && (
+            <div className="rounded-lg border border-warning/40 bg-warning/10 p-3">
+              <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-warning">
+                <TriangleAlert className="size-3.5" />
+                {warnings.length} {warnings.length === 1 ? 'thing looks' : 'things look'} unfinished. You can still export.
+              </div>
+              <div className="space-y-0.5">
+                {(showAll ? warnings : warnings.slice(0, 6)).map((w, i) => {
+                  const sp = project.spreads.find((x) => x.id === w.spreadId)!
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => jump(w.pageId, w.layerId, w.locale)}
+                      className="block w-full cursor-pointer truncate rounded px-1 py-0.5 text-left text-[11px] text-muted hover:bg-warning/10 hover:text-fg"
+                    >
+                      {getTarget(sp.targetId).label} {w.pageIndex + 1} · {w.message}
+                    </button>
+                  )
+                })}
+              </div>
+              {warnings.length > 6 && (
+                <button type="button" onClick={() => setShowAll(!showAll)} className="mt-1 cursor-pointer text-[11px] text-warning hover:underline">
+                  {showAll ? 'Show fewer' : `Show all ${warnings.length}`}
+                </button>
+              )}
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <Label className="mr-auto">Images</Label>
             <Button size="sm" variant="ghost" onClick={() => setSelected(new Set(project.spreads.flatMap((s) => s.pages.map((p) => p.id))))}>

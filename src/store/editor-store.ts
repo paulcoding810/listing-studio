@@ -1,12 +1,13 @@
 import { create, useStore } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 import { temporal } from 'zundo'
-import { cloneLayer, clonePage, copyStrings, deepClone, findLayer, locatePage, remapZoomSources, retargetSpread, walkLayers } from '@/lib/doc'
-import { createPage, createSpread, seedSpread } from '@/lib/factory'
+import { cloneLayer, clonePage, copyOverrides, copyStrings, deepClone, dropOverrides, scaleLayer, findLayer, locatePage, remapZoomSources, retargetSpread, walkLayers } from '@/lib/doc'
+import { createDevice, createPage, createSpread, seedSpread } from '@/lib/factory'
+import { frameForPlatform } from '@/frames'
 import { getTarget } from '@/targets'
 import { uid } from '@/lib/utils'
 import type { IconMask } from '@/features/icons'
-import type { Background, GroupLayer, Layer, Page, Project, Spread, Theme } from '@/types/project'
+import type { Background, DeviceLayer, GroupLayer, Layer, LayerOverride, Page, Project, Spread, Theme } from '@/types/project'
 
 export type ViewMode = 'page' | 'spread'
 export type SaveStatus = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
@@ -54,7 +55,12 @@ export interface EditorState {
   addLayer: (layer: Layer, where?: 'page' | 'shared') => void
   deleteLayers: (ids: string[]) => void
   duplicateLayers: (ids: string[], offset?: number) => void
-  pasteLayers: (layers: Layer[], strings?: StringsSnapshot) => void
+  pasteLayers: (layers: Layer[], strings?: StringsSnapshot, overrides?: Project['overrides']) => void
+  setLayerAsset: (id: string, key: 'screenAssetId' | 'assetId', assetId: string | undefined, scope?: AssetScope) => void
+  setFontSize: (id: string, size: number, scope?: AssetScope) => void
+  clearOverride: (id: string, key: keyof LayerOverride) => void
+  fillScreens: (target: { deviceId: string } | { spreadId: string }, assetIds: string[]) => number
+  resizeGroup: (id: string, width: number, height: number) => void
   groupLayers: (ids: string[], bbox: Rect) => void
   ungroup: (id: string) => void
   arrange: (ids: string[], dir: ArrangeDir) => void
@@ -98,6 +104,28 @@ export function effectiveLocale(p: Project, locale: string) {
 }
 
 export type StringsSnapshot = Project['strings']
+
+/** 'auto' writes to the active language when it isn't the default, 'all' always writes the shared value. */
+export type AssetScope = 'auto' | 'all'
+
+function overrideLocale(p: Project, active: string, scope: AssetScope = 'auto') {
+  const loc = effectiveLocale(p, active)
+  return scope === 'auto' && loc !== p.locales[0] ? loc : null
+}
+
+function writeOverride(p: Project, locale: string, id: string, patch: Partial<LayerOverride>) {
+  const table = ((p.overrides ??= {})[locale] ??= {})
+  const next = { ...table[id], ...patch }
+  for (const k of Object.keys(next) as Array<keyof LayerOverride>) if (next[k] === undefined) delete next[k]
+  if (Object.keys(next).length) table[id] = next
+  else delete table[id]
+}
+
+function setScreenIn(p: Project, active: string, layer: DeviceLayer, assetId: string | undefined) {
+  const loc = overrideLocale(p, active)
+  if (loc) writeOverride(p, loc, layer.id, { screenAssetId: assetId })
+  else layer.screenAssetId = assetId
+}
 
 const activeContainer = (s: EditorState, p: Project, where: 'page' | 'shared'): { spread: Spread; layers: Layer[] } | undefined => {
   const loc = s.activePageId ? locatePage(p, s.activePageId) : undefined
@@ -179,6 +207,7 @@ export const useEditor = create<EditorState>()(
           if (!p || p.locales[0] === l) return
           p.locales = p.locales.filter((x) => x !== l)
           delete p.strings[l]
+          if (p.overrides) delete p.overrides[l]
           if (s.activeLocale === l) s.activeLocale = p.locales[0]
         }),
       setSaveStatus: (st, at) =>
@@ -249,6 +278,7 @@ export const useEditor = create<EditorState>()(
             walkLayers([loc.layer as Layer], (l) => removed.add(l.id))
           }
           for (const t of Object.values(p.strings)) removed.forEach((id) => delete t[id])
+          dropOverrides(p, removed)
           s.selectedIds = s.selectedIds.filter((id) => !removed.has(id))
         }),
       duplicateLayers: (ids, offset = 32) =>
@@ -269,9 +299,10 @@ export const useEditor = create<EditorState>()(
             next.push(copy.id)
           }
           copyStrings(p.strings, idMap)
+          copyOverrides(p.overrides, idMap)
           s.selectedIds = next
         }),
-      pasteLayers: (layers, strings = {}) =>
+      pasteLayers: (layers, strings = {}, overrides = {}) =>
         set((s) => {
           const p = s.project as Project | null
           if (!p) return
@@ -288,6 +319,10 @@ export const useEditor = create<EditorState>()(
           for (const [locale, table] of Object.entries(strings)) {
             if (!p.locales.includes(locale)) continue
             for (const [from, to] of idMap) if (table[from] !== undefined) (p.strings[locale] ??= {})[to] = table[from]
+          }
+          for (const [locale, table] of Object.entries(overrides)) {
+            if (!p.locales.includes(locale)) continue
+            for (const [from, to] of idMap) if (table[from]) ((p.overrides ??= {})[locale] ??= {})[to] = { ...table[from] }
           }
           c.layers.push(...copies)
           s.selectedIds = copies.map((l) => l.id)
@@ -397,6 +432,86 @@ export const useEditor = create<EditorState>()(
           to.container.splice(position === 'after' ? ti + 1 : ti, 0, item)
         }),
 
+      setLayerAsset: (id, key, assetId, scope = 'auto') =>
+        set((s) => {
+          const p = s.project as Project | null
+          const loc = p ? findLayer(p, id) : undefined
+          if (!p || !loc) return
+          const l = loc.layer as Layer
+          if ((key === 'screenAssetId' && l.type !== 'device') || (key === 'assetId' && l.type !== 'image')) return
+          const lang = overrideLocale(p, s.activeLocale, scope)
+          if (lang) writeOverride(p, lang, id, { [key]: assetId })
+          else if (l.type === 'device') l.screenAssetId = assetId
+          else if (l.type === 'image' && assetId) l.assetId = assetId
+        }),
+      setFontSize: (id, size, scope = 'auto') =>
+        set((s) => {
+          const p = s.project as Project | null
+          const loc = p ? findLayer(p, id) : undefined
+          if (!p || !loc || loc.layer.type !== 'text') return
+          const lang = loc.layer.localizable ? overrideLocale(p, s.activeLocale, scope) : null
+          if (lang) writeOverride(p, lang, id, { fontSize: size })
+          else loc.layer.fontSize = size
+        }),
+      clearOverride: (id, key) =>
+        set((s) => {
+          const p = s.project as Project | null
+          if (!p) return
+          const lang = overrideLocale(p, s.activeLocale)
+          if (lang) writeOverride(p, lang, id, { [key]: undefined })
+        }),
+      fillScreens: (target, assetIds) => {
+        let filled = 0
+        set((s) => {
+          const p = s.project as Project | null
+          if (!p || !assetIds.length) return
+          let spread: Spread | undefined
+          let start = 0
+          let first: DeviceLayer | undefined
+          if ('deviceId' in target) {
+            const loc = findLayer(p, target.deviceId)
+            if (!loc || loc.layer.type !== 'device' || !loc.page) return
+            spread = loc.spread
+            start = spread.pages.indexOf(loc.page)
+            first = loc.layer
+          } else {
+            spread = p.spreads.find((x) => x.id === target.spreadId)
+          }
+          if (!spread) return
+          const firstDevice = (pg: Page) => pg.layers.find((l): l is DeviceLayer => l.type === 'device')
+          let i = start
+          for (const assetId of assetIds) {
+            let page = spread.pages[i]
+            if (!page) {
+              page = clonePage(spread.pages[spread.pages.length - 1], p.strings, p.overrides)
+              page.name = `Screen ${spread.pages.length + 1}`
+              spread.pages.push(page)
+            }
+            let device = i === start && first ? first : firstDevice(page)
+            if (!device) {
+              device = createDevice(frameForPlatform(getTarget(spread.targetId).frame).id, spread.width, spread.height)
+              page.layers.push(device)
+            }
+            setScreenIn(p, s.activeLocale, device, assetId)
+            filled++
+            i++
+          }
+          s.activePageId = spread.pages[start].id
+          s.selectedIds = []
+        })
+        return filled
+      },
+      resizeGroup: (id, width, height) =>
+        set((s) => {
+          const loc = s.project ? findLayer(s.project as Project, id) : undefined
+          if (!loc || loc.layer.type !== 'group') return
+          const g = loc.layer
+          const sx = width / (g.width || 1)
+          const sy = height / (g.height || 1)
+          g.children.forEach((c) => scaleLayer(c as Layer, sx, sy))
+          g.width = width
+          g.height = height
+        }),
       moveToContainer: (id, where) =>
         set((s) => {
           const p = s.project as Project | null
@@ -435,7 +550,7 @@ export const useEditor = create<EditorState>()(
           if (!p) return
           const loc = locatePage(p, pageId)
           if (!loc) return
-          const copy = clonePage(loc.page, p.strings)
+          const copy = clonePage(loc.page, p.strings, p.overrides)
           loc.spread.pages.splice(loc.index + 1, 0, copy)
           s.activePageId = copy.id
           s.selectedIds = []
@@ -499,6 +614,12 @@ export const useEditor = create<EditorState>()(
         set((s) => {
           const sp = s.project?.spreads.find((x) => x.id === spreadId) as Spread | undefined
           if (!sp) return
+          const k = Math.min(width / sp.width, height / sp.height)
+          const ids = new Set<string>()
+          walkLayers(sp.sharedLayers, (l) => ids.add(l.id))
+          sp.pages.forEach((pg) => walkLayers(pg.layers, (l) => ids.add(l.id)))
+          for (const table of Object.values(s.project!.overrides ?? {}))
+            for (const [id, o] of Object.entries(table)) if (ids.has(id) && o.fontSize) o.fontSize = Math.round(o.fontSize * k * 10) / 10
           retargetSpread(sp, width, height)
           sp.targetId = targetId
           sp.name = getTarget(targetId).label

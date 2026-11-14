@@ -8,6 +8,8 @@ import { isFlat, reflectionCanvas, warpPerspective } from '@/features/perspectiv
 import { konvaFill, primaryColor, resolveColor } from './fill'
 import { placeImage, type ImagePlacement } from './image-math'
 import { textFor, useRender, type SiblingMap } from './render-context'
+import { useLinkedIcon } from './linked-icon'
+import { localizedLayer } from '@/lib/doc'
 import { useAsset } from './use-asset'
 import type { DeviceLayer, GroupLayer, ImageLayer, Layer, Shadow, ShapeLayer, TextLayer, ZoomLayer } from '@/types/project'
 
@@ -27,8 +29,9 @@ export function nativeScale(ctx: Konva.Context, node: Konva.Node) {
   return node.getAbsoluteScale().x * (ctx.canvas?.getPixelRatio?.() ?? 1)
 }
 
-export function LayerNode({ layer, siblings, inGroup }: { layer: Layer; siblings: SiblingMap; inGroup?: boolean }) {
+export function LayerNode({ layer: raw, siblings, inGroup }: { layer: Layer; siblings: SiblingMap; inGroup?: boolean }) {
   const ctx = useRender()
+  const layer = localizedLayer(ctx.project, ctx.locale, raw)
   const selected = ctx.selected.has(layer.id)
   return (
     <Group
@@ -93,7 +96,9 @@ function TextContent({ l }: { l: TextLayer }) {
 
 function ImageContent({ l }: { l: ImageLayer }) {
   const ctx = useRender()
-  const img = useAsset(l.assetId)
+  const linked = useLinkedIcon(ctx.project, l.assetId)
+  const uploaded = useAsset(linked.isLinked ? undefined : l.assetId)
+  const img = linked.isLinked ? linked.img : uploaded
   const p = useMemo(() => {
     if (!img) return undefined
     const s = sourceSize(img)
@@ -228,9 +233,24 @@ function DeviceContent({ l }: { l: DeviceLayer }) {
   }, [frame, l.frameColor, screen, l.screenFit, l.screenColor, scale, rotateX, rotateY, depth])
   const hasRefl = l.reflection > 0
   const refl = useMemo(() => (hasRefl ? reflectionCanvas(canvas) : null), [canvas, hasRefl])
+  const hint = !screen && ctx.interactive && isFlat(l.perspective) ? screenRectInLayer(frame, l.width, l.height) : null
   return (
     <>
       <KImage image={canvas} width={l.width} height={l.height} {...shadowProps(l.shadow)} />
+      {hint && (
+        <Text
+          x={hint.x}
+          y={hint.y + hint.h / 2 - Math.max(12, hint.w / 18)}
+          width={hint.w}
+          align="center"
+          text={'Drop a screenshot here\nor several to fill the set'}
+          fontSize={Math.max(12, hint.w / 18)}
+          lineHeight={1.4}
+          fontFamily="Inter"
+          fill="rgba(148,163,184,0.85)"
+          listening={false}
+        />
+      )}
       {refl && (
         <Shape
           listening={false}
@@ -253,7 +273,9 @@ export interface SourceGeometry {
   placement?: ImagePlacement
 }
 
-function useSourceGeometry(src: Layer | undefined): SourceGeometry | undefined {
+function useSourceGeometry(rawSrc: Layer | undefined): SourceGeometry | undefined {
+  const ctx = useRender()
+  const src = rawSrc ? localizedLayer(ctx.project, ctx.locale, rawSrc) : undefined
   const assetId = src?.type === 'image' ? src.assetId : src?.type === 'device' ? src.screenAssetId : undefined
   const img = useAsset(assetId)
   if (!src || (src.type !== 'image' && src.type !== 'device')) return undefined

@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { stageRegistry } from '@/features/canvas/stage-registry'
-import { addText, copySelection, groupSelection, pasteClipboard, ungroupSelection, uploadImages } from '@/features/editor-actions'
+import { addText, copySelection, groupSelection, pasteClipboard, selectedDeviceId, ungroupSelection, uploadImages } from '@/features/editor-actions'
 import { findLayer, locatePage } from '@/lib/doc'
 import { isTypingTarget } from '@/lib/utils'
 import { redo, undo, useEditor } from '@/store/editor-store'
@@ -90,7 +90,7 @@ export function useEditorShortcuts(openExport: () => void) {
       const files = [...(e.clipboardData?.files ?? [])].filter((f) => f.type.startsWith('image/'))
       if (files.length) {
         e.preventDefault()
-        void uploadImages(files)
+        void uploadImages(files, { deviceId: selectedDeviceId() })
       } else if (pasteClipboard()) e.preventDefault()
     }
     window.addEventListener('keydown', onKey)

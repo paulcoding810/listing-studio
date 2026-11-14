@@ -3,17 +3,16 @@ import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/components/ui/toast'
 import { DEMO_SCREENS } from '@/demo/screens'
-import { addDevice, addImage, addShape, addText, addZoom, setDeviceScreen, uploadImages } from '@/features/editor-actions'
+import { addDevice, addImage, addShape, addText, addZoom, selectedDeviceId, setDeviceScreen, uploadImages } from '@/features/editor-actions'
 import { renderDeviceCanvas } from '@/features/device-paint'
 import { FRAMES } from '@/frames'
 import { loadAsset } from '@/lib/assets'
 import { assetsDb } from '@/lib/db'
-import { findLayer } from '@/lib/doc'
 import { TEXT_PRESETS, type TextPreset } from '@/lib/factory'
 import { importFontFile, useFonts } from '@/lib/fonts'
-import { useEditor } from '@/store/editor-store'
 import type { AssetRecord, ShapeKind } from '@/types/project'
 import { Section } from './controls'
+import { AppIconAssets } from './AppIconAssets'
 
 const thumbCache = new Map<string, string>()
 
@@ -42,12 +41,6 @@ function useAssetThumb(id: string) {
   return url
 }
 
-function selectedDeviceId(): string | undefined {
-  const s = useEditor.getState()
-  if (!s.project || s.selectedIds.length !== 1) return undefined
-  const l = findLayer(s.project, s.selectedIds[0])?.layer
-  return l?.type === 'device' ? l.id : undefined
-}
 
 function AssetTile({ id, w, h, name, onDelete }: { id: string; w: number; h: number; name: string; onDelete?: () => void }) {
   const url = useAssetThumb(id)
@@ -122,6 +115,7 @@ export function AssetsPanel() {
 
   return (
     <div>
+      <AppIconAssets />
       <Section title="Text">
         <div className="space-y-1">
           {(Object.keys(TEXT_PRESETS) as TextPreset[]).map((k) => {

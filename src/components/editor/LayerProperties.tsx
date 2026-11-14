@@ -30,12 +30,39 @@ import { importImageFile } from '@/lib/assets'
 import { blobPoints, shadow as defaultShadow, TEXT_PRESETS, type TextPreset } from '@/lib/factory'
 import { cn } from '@/lib/utils'
 import { effectiveLocale, useEditor } from '@/store/editor-store'
+import { localeName } from './LocalizationDialog'
+import type { LayerOverride } from '@/types/project'
+import { isLinkedIcon } from '@/lib/doc'
 import type { DeviceLayer, ImageLayer, Layer, PerspectivePreset, Project, Shadow, ShapeLayer, TextLayer, ZoomLayer } from '@/types/project'
 import { ColorField, ColorPicker, FillEditor, NumberField, Row, Section, SliderField } from './controls'
 import { FontSelect } from './ThemeEditor'
 import { useAsset } from '@/features/canvas/use-asset'
 
 type Patch = Record<string, unknown>
+
+function useLangScope(project: Project, id: string, key: keyof LayerOverride) {
+  const locale = effectiveLocale(project, useEditor((s) => s.activeLocale))
+  const translating = locale !== project.locales[0]
+  const overridden = translating && project.overrides?.[locale]?.[id]?.[key] !== undefined
+  return { locale, translating, overridden }
+}
+
+function LangScope({ project, id, field, what }: { project: Project; id: string; field: keyof LayerOverride; what: string }) {
+  const { locale, translating, overridden } = useLangScope(project, id, field)
+  if (!translating) return null
+  return (
+    <div className="flex items-center gap-1.5 rounded-md bg-accent-soft px-2 py-1.5 text-[11px] text-muted">
+      <span className="flex-1">
+        {overridden ? `${localeName(locale)} uses its own ${what}.` : `Changing the ${what} now applies to ${localeName(locale)} only.`}
+      </span>
+      {overridden && (
+        <button type="button" onClick={() => useEditor.getState().clearOverride(id, field)} className="cursor-pointer text-accent hover:underline">
+          Use shared
+        </button>
+      )}
+    </div>
+  )
+}
 const upd = (id: string, patch: Patch) => useEditor.getState().updateLayer(id, patch)
 
 const ALIGN: Array<[AlignKind, React.ReactNode, string]> = [
@@ -89,6 +116,7 @@ function TransformSection({ l }: { l: Layer }) {
           min={1}
           onChange={(width) => {
             if (square) upd(l.id, { width, height: width })
+            else if (l.type === 'group') useEditor.getState().resizeGroup(l.id, width, l.height)
             else if (ratioLocked) upd(l.id, { width, height: Math.round(width / deviceAspect(getFrame((l as DeviceLayer).frameId))) })
             else upd(l.id, { width })
           }}
@@ -100,6 +128,7 @@ function TransformSection({ l }: { l: Layer }) {
             min={1}
             onChange={(height) => {
               if (square) upd(l.id, { width: height, height })
+              else if (l.type === 'group') useEditor.getState().resizeGroup(l.id, l.width, height)
               else if (ratioLocked) upd(l.id, { height, width: Math.round(height * deviceAspect(getFrame((l as DeviceLayer).frameId))) })
               else upd(l.id, { height })
             }}
@@ -187,7 +216,7 @@ function TextSection({ l, project }: { l: TextLayer; project: Project }) {
           <Select value={String(l.fontWeight)} onChange={(v) => upd(l.id, { fontWeight: Number(v) })} options={WEIGHTS.map(([v, label]) => ({ value: v, label }))} />
         </Row>
         <div className="grid grid-cols-2 gap-2">
-          <NumberField prefix="Size" value={l.fontSize} min={4} max={1000} onChange={(fontSize) => upd(l.id, { fontSize })} />
+          <NumberField prefix="Size" value={l.fontSize} min={4} max={1000} onChange={(fontSize) => useEditor.getState().setFontSize(l.id, fontSize)} />
           <div className="flex gap-1">
             <Tip label="Italic">
               <button type="button" onClick={() => upd(l.id, { italic: !l.italic })} className={cn('flex h-7 flex-1 cursor-pointer items-center justify-center rounded-md border border-border', l.italic ? 'bg-accent-soft text-fg' : 'text-muted')}>
@@ -217,6 +246,7 @@ function TextSection({ l, project }: { l: TextLayer; project: Project }) {
           <ColorPicker value={l.stroke?.color ?? '#000000'} onChange={(color) => upd(l.id, { stroke: { width: l.stroke?.width ?? 2, color } })} />
           <NumberField value={l.stroke?.width ?? 0} min={0} max={100} onChange={(width) => upd(l.id, { stroke: { color: l.stroke?.color ?? '#000000', width } })} suffix="px" />
         </Row>
+        {l.localizable && <LangScope project={project} id={l.id} field="fontSize" what="text size" />}
         <Row label="Translate">
           <Switch checked={l.localizable} onChange={(localizable) => upd(l.id, { localizable })} />
           <span className="text-[11px] text-subtle">Include in localization</span>
@@ -285,7 +315,7 @@ function ScreenPicker({ value, onPick }: { value?: string; onPick: (id: string |
   )
 }
 
-function ImageSection({ l }: { l: ImageLayer }) {
+function ImageSection({ l, project }: { l: ImageLayer; project: Project }) {
   const ref = useRef<HTMLInputElement>(null)
   return (
     <Section title="Image">
@@ -306,10 +336,12 @@ function ImageSection({ l }: { l: ImageLayer }) {
             e.target.value = ''
             if (!f) return
             const [id] = await uploadImages([f], { add: false })
-            if (id) upd(l.id, { assetId: id })
+            if (id) useEditor.getState().setLayerAsset(l.id, 'assetId', id)
           }}
         />
       </div>
+      {isLinkedIcon(l.assetId) && <p className="text-[11px] text-subtle">Linked to the project's app icon set. It updates when the icon changes. Replace it to unlink.</p>}
+      <LangScope project={project} id={l.id} field="assetId" what="image" />
       <Segmented
         value={l.fit}
         onChange={(fit) => upd(l.id, { fit })}
@@ -374,7 +406,7 @@ const PRESET_LABELS: Record<Exclude<PerspectivePreset, 'custom'>, string> = {
   dramatic: 'Dramatic',
 }
 
-function DeviceSection({ l }: { l: DeviceLayer }) {
+function DeviceSection({ l, project }: { l: DeviceLayer; project: Project }) {
   const frame = getFrame(l.frameId)
   const setPreset = (p: Exclude<PerspectivePreset, 'custom'>) => {
     const patch: Patch = { perspective: { preset: p, ...PERSPECTIVE_PRESETS[p] } }
@@ -412,8 +444,9 @@ function DeviceSection({ l }: { l: DeviceLayer }) {
           </div>
         </Row>
         <Row label="Screen">
-          <ScreenPicker value={l.screenAssetId} onPick={(screenAssetId) => upd(l.id, { screenAssetId })} />
+          <ScreenPicker value={l.screenAssetId} onPick={(screenAssetId) => useEditor.getState().setLayerAsset(l.id, 'screenAssetId', screenAssetId)} />
         </Row>
+        <LangScope project={project} id={l.id} field="screenAssetId" what="screenshot" />
         <Row label="Fit">
           <Segmented value={l.screenFit} onChange={(screenFit) => upd(l.id, { screenFit })} options={[{ value: 'cover', label: 'Fill' }, { value: 'contain', label: 'Fit' }]} />
         </Row>
@@ -486,9 +519,9 @@ export function LayerProperties({ layer, project, siblings }: { layer: Layer; pr
       </div>
       <TransformSection l={layer} />
       {layer.type === 'text' && <TextSection l={layer} project={project} />}
-      {layer.type === 'image' && <ImageSection l={layer} />}
+      {layer.type === 'image' && <ImageSection l={layer} project={project} />}
       {layer.type === 'shape' && <ShapeSection l={layer} project={project} />}
-      {layer.type === 'device' && <DeviceSection l={layer} />}
+      {layer.type === 'device' && <DeviceSection l={layer} project={project} />}
       {layer.type === 'zoom' && <ZoomSection l={layer} siblings={siblings} />}
       {layer.type === 'group' && (
         <Section title="Group">

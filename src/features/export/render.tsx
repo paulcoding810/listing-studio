@@ -7,6 +7,7 @@ import { collectAssetIds } from '@/lib/doc'
 import { ensureProjectFonts, useFonts } from '@/lib/fonts'
 import { PageScene } from '@/features/canvas/page-content'
 import { RenderContext, type RenderCtx } from '@/features/canvas/render-context'
+import { collectLinkedIcons, ensureLinkedIcon, LINKED_ICON_SIZE, setLinkedIconRenderer } from '@/features/canvas/linked-icon'
 import type { Project } from '@/types/project'
 
 export interface RenderOptions {
@@ -25,15 +26,28 @@ function enqueue<T>(job: () => Promise<T>): Promise<T> {
   return run
 }
 
-export async function prepareProject(project: Project) {
+export async function prepareProject(project: Project, renderIcons = true) {
   await Promise.all([preloadAssets(collectAssetIds(project)), ensureProjectFonts(project)])
+  if (!renderIcons) return
+  for (const spreadId of collectLinkedIcons(project)) await ensureLinkedIcon(project, spreadId, renderIconNow)
 }
 
+function renderIconNow(project: Project, spreadId: string) {
+  const spread = project.spreads.find((s) => s.id === spreadId)!
+  return renderNow(project, spreadId, 0, { pixelRatio: LINKED_ICON_SIZE / spread.width }, false)
+}
+
+setLinkedIconRenderer((project, spreadId) => enqueue(() => renderIconNow(project, spreadId)))
+
 export function renderPageCanvas(project: Project, spreadId: string, pageIndex: number, opts: RenderOptions = {}): Promise<HTMLCanvasElement> {
-  return enqueue(async () => {
+  return enqueue(() => renderNow(project, spreadId, pageIndex, opts, true))
+}
+
+async function renderNow(project: Project, spreadId: string, pageIndex: number, opts: RenderOptions, renderIcons: boolean): Promise<HTMLCanvasElement> {
+  {
     const spread = project.spreads.find((s) => s.id === spreadId)
     if (!spread || !spread.pages[pageIndex]) throw new Error('Page not found')
-    await prepareProject(project)
+    await prepareProject(project, renderIcons)
     const pixelRatio = opts.pixelRatio ?? 1
     const host = document.createElement('div')
     host.style.cssText = 'position:fixed;left:-100000px;top:0;pointer-events:none;opacity:0'
@@ -78,7 +92,7 @@ export function renderPageCanvas(project: Project, spreadId: string, pageIndex: 
       root.unmount()
       host.remove()
     }
-  })
+  }
 }
 
 export function canvasToBlob(canvas: HTMLCanvasElement, format: 'png' | 'jpg', quality = 0.92): Promise<Blob> {

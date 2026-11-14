@@ -152,6 +152,14 @@ export interface Spread {
   pages: Page[]
 }
 
+export interface LayerOverride {
+  screenAssetId?: string
+  assetId?: string
+  fontSize?: number
+}
+
+export type OverrideKey = keyof LayerOverride
+
 export interface Project {
   id: string
   version: 1
@@ -162,6 +170,7 @@ export interface Project {
   spreads: Spread[]
   locales: string[]
   strings: Record<string, Record<string, string>>
+  overrides?: Record<string, Record<string, LayerOverride>>
   templateId?: string
   brandKitId?: string
 }

@@ -1,5 +1,7 @@
-import { AlertCircle, CheckCircle2, Copy, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { AlertCircle, CheckCircle2, Copy, Images, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { fillSetFromFiles } from '@/features/editor-actions'
+import { lintProject } from '@/lib/lint'
 import { RenameDialog } from '@/components/dashboard/ConfirmDialog'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
@@ -11,15 +13,17 @@ import { cn } from '@/lib/utils'
 import { validateCount, validateSize } from '@/lib/validation'
 import { STORES, getStore, getTarget, TARGETS } from '@/targets'
 import { useEditor } from '@/store/editor-store'
-import type { Spread } from '@/types/project'
+import type { Project, Spread } from '@/types/project'
 
-function SpreadStatus({ spread }: { spread: Spread }) {
+function SpreadStatus({ spread, project }: { spread: Spread; project: Project }) {
   const t = getTarget(spread.targetId)
   const issues = [...validateSize(t, spread.width, spread.height), ...validateCount(t, spread.pages.length)]
-  const errors = issues.filter((i) => i.level === 'error')
-  const ok = issues.length === 0
+  const content = lintProject({ ...project, spreads: [spread] }).map((w) => ({ level: 'warning' as const, message: `${w.pageIndex + 1}. ${w.message}` }))
+  const all = [...issues, ...content]
+  const errors = all.filter((i) => i.level === 'error')
+  const ok = all.length === 0
   return (
-    <span title={issues.map((i) => i.message).join('\n') || 'Meets store requirements'} className={cn('flex items-center', ok ? 'text-success' : errors.length ? 'text-danger' : 'text-warning')}>
+    <span title={all.map((i) => i.message).join('\n') || 'Meets store requirements, no unfinished content'} className={cn('flex items-center', ok ? 'text-success' : errors.length ? 'text-danger' : 'text-warning')}>
       {ok ? <CheckCircle2 className="size-3.5" /> : <AlertCircle className="size-3.5" />}
     </span>
   )
@@ -75,6 +79,12 @@ export function PagesPanel() {
   const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null)
   const [drag, setDrag] = useState<{ id: string; spread: string } | null>(null)
   const [over, setOver] = useState<string | null>(null)
+  const fillInput = useRef<HTMLInputElement>(null)
+  const fillTarget = useRef<string | null>(null)
+  const fillFor = (spreadId: string) => {
+    fillTarget.current = spreadId
+    fillInput.current?.click()
+  }
   if (!project) return null
   const st = useEditor.getState()
   const total = project.spreads.reduce((n, s) => n + s.pages.length, 0)
@@ -94,7 +104,7 @@ export function PagesPanel() {
                   {spread.width}×{spread.height} · {spread.pages.length} image{spread.pages.length === 1 ? '' : 's'}
                 </div>
               </div>
-              <SpreadStatus spread={spread} />
+              <SpreadStatus spread={spread} project={project} />
               <Menu
                 trigger={
                   <button type="button" className="cursor-pointer rounded p-1 text-muted hover:bg-surface hover:text-fg" aria-label="Set actions">
@@ -105,6 +115,11 @@ export function PagesPanel() {
                 <MenuItem onSelect={() => st.addPage(spread.id)}>
                   <Plus /> Add image
                 </MenuItem>
+                {t.kind !== 'icon' && (
+                  <MenuItem onSelect={() => fillFor(spread.id)}>
+                    <Images /> Fill frames from screenshots…
+                  </MenuItem>
+                )}
                 <MenuSeparator />
                 <MenuItem danger onSelect={() => st.deleteSpread(spread.id)}>
                   <Trash2 /> Delete set
@@ -185,6 +200,18 @@ export function PagesPanel() {
           </div>
         )
       })}
+      <input
+        ref={fillInput}
+        type="file"
+        multiple
+        accept="image/png,image/jpeg,image/webp,image/gif,image/avif"
+        className="hidden"
+        onChange={(e) => {
+          const files = [...(e.target.files ?? [])]
+          e.target.value = ''
+          if (fillTarget.current && files.length) void fillSetFromFiles(fillTarget.current, files)
+        }}
+      />
       <Button className="w-full" onClick={() => setAdding(true)}>
         <Plus /> Add set (another store or size)
       </Button>

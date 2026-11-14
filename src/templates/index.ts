@@ -1,4 +1,4 @@
-import { createDevice, createShape, createText, shadow } from '@/lib/factory'
+import { createDevice, createImage, createShape, createText, shadow } from '@/lib/factory'
 import { uid } from '@/lib/utils'
 import { getTarget } from '@/targets'
 import type { Background, Spread, Theme } from '@/types/project'
@@ -369,6 +369,30 @@ export const TEMPLATES: TemplateDef[] = [
           { title: 'Export notes anywhere', screen: 'demo:browser-page', layout: 'tilt-right' },
         ],
       })
+      const iconSet: Spread = {
+        id: uid(),
+        name: 'Master icon',
+        targetId: 'icon/master',
+        width: 1024,
+        height: 1024,
+        seamless: false,
+        background: grad(135, ['#6366F1', 'primary'], ['#8B5CF6', 'secondary']),
+        sharedLayers: [],
+        pages: [
+          {
+            id: uid(),
+            name: 'Icon',
+            layers: [
+              createShape('rect', t, { name: 'Page', x: 262, y: 220, width: 500, height: 600, cornerRadius: 70, fill: { kind: 'solid', color: '#FFFFFF' }, shadow: shadow({ blur: 40, offsetY: 18, opacity: 0.25 }) }),
+              createShape('rect', t, { name: 'Highlight', x: 332, y: 360, width: 360, height: 90, cornerRadius: 24, fill: { kind: 'solid', color: t.colors.accent, ref: 'accent' } }),
+              createShape('rect', t, { name: 'Line 1', x: 332, y: 500, width: 300, height: 40, cornerRadius: 20, fill: { kind: 'solid', color: '#C7D2FE' } }),
+              createShape('rect', t, { name: 'Line 2', x: 332, y: 580, width: 240, height: 40, cornerRadius: 20, fill: { kind: 'solid', color: '#C7D2FE' } }),
+            ],
+          },
+        ],
+      }
+      const linkedIcon = (x: number, y: number, size: number) =>
+        createImage(`icon:${iconSet.id}`, size, size, { name: 'App icon (linked)', x, y, cornerRadius: Math.round(size * 0.2237) })
       const tile = (targetId: string, W: number, H: number, big: boolean): Spread => ({
         id: uid(),
         name: getTarget(targetId).label,
@@ -383,15 +407,14 @@ export const TEMPLATES: TemplateDef[] = [
             id: uid(),
             name: getTarget(targetId).label,
             layers: [
-              createShape('rect', t, { name: 'Icon', x: W * 0.08, y: H / 2 - H * 0.18, width: H * 0.36, height: H * 0.36, cornerRadius: H * 0.09, fill: { kind: 'solid', color: '#FFFFFF' } }),
-              createShape('rect', t, { name: 'Icon mark', x: W * 0.08 + H * 0.09, y: H / 2 - H * 0.04, width: H * 0.18, height: H * 0.08, cornerRadius: H * 0.02, fill: { kind: 'solid', color: t.colors.accent, ref: 'accent' } }),
+              linkedIcon(Math.round(W * 0.08), Math.round(H / 2 - H * 0.18), Math.round(H * 0.36)),
               createText(t, { preset: 'hero', name: 'Name', text: 'Highlight', x: W * 0.08 + H * 0.46, y: H / 2 - (big ? 70 : 34), width: W * 0.6, fontSize: big ? 84 : 40, align: 'left', color: '#FFFFFF', colorRef: undefined, canvasWidth: W }),
               createText(t, { preset: 'subtitle', name: 'Tagline', text: 'Save the best of the web', x: W * 0.08 + H * 0.46, y: H / 2 + (big ? 30 : 12), width: W * 0.6, fontSize: big ? 36 : 18, align: 'left', color: '#E0E7FF', colorRef: undefined, canvasWidth: W }),
             ],
           },
         ],
       })
-      return { theme: t, spreads: [shots, tile('chrome-web-store/small-promo', 440, 280, false), tile('chrome-web-store/marquee', 1400, 560, true)] }
+      return { theme: t, spreads: [shots, tile('chrome-web-store/small-promo', 440, 280, false), tile('chrome-web-store/marquee', 1400, 560, true), iconSet] }
     },
   },
   {

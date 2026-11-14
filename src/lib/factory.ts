@@ -52,6 +52,8 @@ export const linear = (angle: number, ...colors: string[]): Fill => ({
 
 export const background = (fill: Fill, extra: Partial<Background> = {}): Background => ({ fill, ...extra })
 
+export const PLACEHOLDER_TEXTS = ['Your headline here', 'Add your text', 'NEW FEATURE']
+
 export type TextPreset = 'hero' | 'heading' | 'subtitle' | 'body' | 'caption'
 
 export const TEXT_PRESETS: Record<TextPreset, { label: string; size: number; weight: number; lineHeight: number; letterSpacing: number; font: 'heading' | 'body' }> = {

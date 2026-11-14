@@ -6,11 +6,14 @@ import { findLayer, walkLayers } from '@/lib/doc'
 import { createDevice, createImage, createShape, createText, createZoom, type TextPreset } from '@/lib/factory'
 import { getTarget } from '@/targets'
 import { selectActive, useEditor } from '@/store/editor-store'
-import type { Layer, ShapeKind } from '@/types/project'
+import type { Layer, Project, ShapeKind } from '@/types/project'
+import { linkedIconId } from './canvas/linked-icon'
+import { APPLE_RADIUS } from './icons'
 import { nodeRectInParent } from './canvas/stage-registry'
 
 let clipboard: Layer[] = []
 let clipboardStrings: Record<string, Record<string, string>> = {}
+let clipboardOverrides: Project['overrides'] = {}
 
 const active = () => {
   const s = useEditor.getState()
@@ -76,24 +79,113 @@ export function addZoom() {
   if (!source) toast.info('Add a device or image, then pick it as the zoom source.')
 }
 
-export function setDeviceScreen(deviceId: string, assetId: string) {
-  useEditor.getState().updateLayer(deviceId, { screenAssetId: assetId })
+export function selectedDeviceId(): string | undefined {
+  const s = useEditor.getState()
+  if (!s.project || s.selectedIds.length !== 1) return undefined
+  const l = findLayer(s.project, s.selectedIds[0])?.layer
+  return l?.type === 'device' ? l.id : undefined
 }
 
-export async function uploadImages(files: File[], opts: { at?: { x: number; y: number }; deviceId?: string; add?: boolean } = {}) {
-  const added: string[] = []
-  for (const f of files) {
+export function setDeviceScreen(deviceId: string, assetId: string) {
+  useEditor.getState().setLayerAsset(deviceId, 'screenAssetId', assetId)
+}
+
+const naturalOrder = (a: File, b: File) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+
+async function importAll(files: File[]) {
+  const recs = []
+  for (const f of [...files].sort(naturalOrder)) {
     try {
-      const rec = await importImageFile(f)
-      added.push(rec.id)
-      if (opts.deviceId && added.length === 1) setDeviceScreen(opts.deviceId, rec.id)
-      else if (opts.add !== false) addImage(rec.id, rec.width, rec.height, opts.at)
+      recs.push(await importImageFile(f))
     } catch (e) {
       toast.error(e instanceof AssetError ? e.message : `${f.name}: upload failed`)
     }
   }
-  if (added.length) toast.success(`${added.length} image${added.length > 1 ? 's' : ''} added`)
-  return added
+  return recs
+}
+
+function fillToast(filled: number, before: number, after: number) {
+  const extra = after - before
+  toast.success(`Filled ${filled} frame${filled > 1 ? 's' : ''} in file-name order${extra > 0 ? `, added ${extra} image${extra > 1 ? 's' : ''} to the set` : ''}`)
+}
+
+function spreadPageCount(spreadId: string) {
+  return useEditor.getState().project?.spreads.find((s) => s.id === spreadId)?.pages.length ?? 0
+}
+
+/** Uploads files; with a device target, fills that frame and the frames on the following images in order. */
+export async function uploadImages(files: File[], opts: { at?: { x: number; y: number }; deviceId?: string; add?: boolean } = {}) {
+  const recs = await importAll(files)
+  const ids = recs.map((r) => r.id)
+  if (!recs.length) return ids
+  const st = useEditor.getState()
+  const loc = opts.deviceId && st.project ? findLayer(st.project, opts.deviceId) : undefined
+  if (loc && opts.deviceId) {
+    const before = loc.spread.pages.length
+    const filled = st.fillScreens({ deviceId: opts.deviceId }, ids)
+    if (recs.length > 1) fillToast(filled, before, spreadPageCount(loc.spread.id))
+    else toast.success('Screen updated')
+    return ids
+  }
+  if (opts.add !== false) recs.forEach((r) => addImage(r.id, r.width, r.height, opts.at))
+  toast.success(`${recs.length} image${recs.length > 1 ? 's' : ''} added`)
+  return ids
+}
+
+export async function fillSetFromFiles(spreadId: string, files: File[]) {
+  const recs = await importAll(files)
+  if (!recs.length) return
+  const before = spreadPageCount(spreadId)
+  const filled = useEditor.getState().fillScreens({ spreadId }, recs.map((r) => r.id))
+  fillToast(filled, before, spreadPageCount(spreadId))
+}
+
+export function iconSpreadOf(project: Project | null) {
+  return project?.spreads.find((s) => getTarget(s.targetId).kind === 'icon')
+}
+
+function linkedIconLayer(iconSpreadId: string, w: number, h: number, opts: { x?: number; y?: number; size?: number } = {}) {
+  const size = Math.round(opts.size ?? Math.min(w, h) * 0.36)
+  return createImage(linkedIconId(iconSpreadId), size, size, {
+    name: 'App icon (linked)',
+    fit: 'cover',
+    cornerRadius: Math.round(size * APPLE_RADIUS),
+    x: Math.round(opts.x ?? (w - size) / 2),
+    y: Math.round(opts.y ?? (h - size) / 2),
+  })
+}
+
+export function addLinkedIcon() {
+  const a = active()
+  const icon = iconSpreadOf(a?.s.project ?? null)
+  if (!a || !icon) return
+  if (icon.id === a.spread.id) return toast.info('Open a screenshot, tile or graphic to place the icon on it.')
+  a.s.addLayer(linkedIconLayer(icon.id, a.spread.width, a.spread.height))
+}
+
+const ICON_SURFACES = new Set(['promo-tile', 'marquee', 'feature-graphic', 'banner'])
+
+/** Places the linked app icon on every promo tile and feature graphic that doesn't have it yet. */
+export function placeIconOnGraphics() {
+  const st = useEditor.getState()
+  const icon = iconSpreadOf(st.project)
+  if (!st.project || !icon) return 0
+  const link = linkedIconId(icon.id)
+  let placed = 0
+  st.mutate((p) => {
+    for (const sp of p.spreads) {
+      if (!ICON_SURFACES.has(getTarget(sp.targetId).kind)) continue
+      for (const page of sp.pages) {
+        let has = false
+        walkLayers(page.layers, (l) => (has ||= l.type === 'image' && l.assetId === link))
+        if (has) continue
+        const size = Math.round(sp.height * 0.36)
+        page.layers.push(linkedIconLayer(icon.id, sp.width, sp.height, { size, x: sp.width * 0.06, y: (sp.height - size) / 2 }))
+        placed++
+      }
+    }
+  })
+  return placed
 }
 
 export function copySelection() {
@@ -105,11 +197,14 @@ export function copySelection() {
   clipboardStrings = Object.fromEntries(
     Object.entries(s.project.strings).map(([loc, table]) => [loc, Object.fromEntries(Object.entries(table).filter(([id]) => ids.has(id)))]),
   )
+  clipboardOverrides = Object.fromEntries(
+    Object.entries(s.project.overrides ?? {}).map(([loc, table]) => [loc, structuredClone(Object.fromEntries(Object.entries(table).filter(([id]) => ids.has(id))))]),
+  )
   if (clipboard.length) toast.info(`Copied ${clipboard.length} layer${clipboard.length > 1 ? 's' : ''}`)
 }
 
 export function pasteClipboard() {
-  if (clipboard.length) useEditor.getState().pasteLayers(clipboard, clipboardStrings)
+  if (clipboard.length) useEditor.getState().pasteLayers(clipboard, clipboardStrings, clipboardOverrides)
   return clipboard.length > 0
 }
 

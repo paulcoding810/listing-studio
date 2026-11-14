@@ -1,4 +1,5 @@
-import { ImagePlus } from 'lucide-react'
+import { ImagePlus, LayoutTemplate } from 'lucide-react'
+import { placeIconEverywhere } from './AppIconAssets'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Segmented } from '@/components/ui/primitives'
@@ -92,6 +93,9 @@ export function IconSection({ project, spread, pageId }: { project: Project; spr
         <Tile url={url} label="48 px" radius={`${PLAY_RADIUS * 100}%`} bg="#F1F5F9" size={24} />
         <Tile url={url} label="16 px" radius={`${APPLE_RADIUS * 100}%`} bg="#F1F5F9" size={16} />
       </div>
+      <Button size="sm" className="w-full" onClick={placeIconEverywhere}>
+        <LayoutTemplate /> Place on promo tiles & feature graphic
+      </Button>
       {kit ? (
         <Button size="sm" className="w-full" onClick={insertLogo}>
           <ImagePlus /> Insert {kit.name} logo

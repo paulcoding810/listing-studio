@@ -1,4 +1,4 @@
-import { findLayer, locatePage } from '@/lib/doc'
+import { findLayer, localizedLayer, locatePage } from '@/lib/doc'
 import { useEditor } from '@/store/editor-store'
 import type { Layer } from '@/types/project'
 import { CanvasProperties } from './CanvasProperties'
@@ -8,6 +8,7 @@ export function PropertiesPanel() {
   const project = useEditor((s) => s.project)
   const activePageId = useEditor((s) => s.activePageId)
   const selectedIds = useEditor((s) => s.selectedIds)
+  const locale = useEditor((s) => s.activeLocale)
   if (!project || !activePageId) return null
   const loc = locatePage(project, activePageId)
   if (!loc) return null
@@ -16,5 +17,5 @@ export function PropertiesPanel() {
   if (layers.length > 1) return <MultiProperties layers={layers.map((l) => l.layer as Layer)} />
   const one = layers[0]
   const siblings = one.container as Layer[]
-  return <LayerProperties key={one.layer.id} layer={one.layer as Layer} project={project} siblings={siblings} />
+  return <LayerProperties key={one.layer.id} layer={localizedLayer(project, locale, one.layer as Layer)} project={project} siblings={siblings} />
 }
