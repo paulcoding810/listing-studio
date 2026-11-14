@@ -13,6 +13,7 @@ import type { Background, PatternKind, Project, Spread } from '@/types/project'
 import { ColorPicker, FillEditor, NumberField, Row, Section, SliderField } from './controls'
 import { ThemeEditor } from './ThemeEditor'
 import { LocalizationDialog } from './LocalizationDialog'
+import { IconSection } from './IconSection'
 
 function TargetSection({ spread }: { spread: Spread }) {
   const t = getTarget(spread.targetId)
@@ -224,6 +225,7 @@ export function CanvasProperties({ project, spread, pageId }: { project: Project
     <>
       <div className="border-b border-border px-3 py-2.5 text-[13px] font-medium">Canvas</div>
       <TargetSection spread={spread} />
+      {getTarget(spread.targetId).kind === 'icon' && <IconSection project={project} spread={spread} pageId={pageId} />}
       <BackgroundSection key={pageId} spread={spread} pageId={pageId} project={project} />
       <ThemeSection project={project} />
       <LocalesSection project={project} />

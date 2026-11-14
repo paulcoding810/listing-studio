@@ -1,4 +1,4 @@
-import { ArrowRight, Globe, Plus, Smartphone, Tablet, Upload } from 'lucide-react'
+import { AppWindow, ArrowRight, Globe, Plus, Smartphone, Tablet, Upload } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { PageHeader } from '@/components/dashboard/AppShell'
@@ -16,6 +16,7 @@ const QUICK: Array<{ store: StoreId; title: string; body: string; icon: typeof S
   { store: 'google-play', title: 'Google Play', body: 'Phone, tablet, feature graphic', icon: Smartphone, color: '#34A853' },
   { store: 'app-store', title: 'App Store', body: 'iPhone 6.9" and iPad 13"', icon: Tablet, color: '#0A84FF' },
   { store: 'chrome-web-store', title: 'Chrome Web Store', body: 'Screenshots and promo tiles', icon: Globe, color: '#F4B400' },
+  { store: 'icon', title: 'App icon', body: 'One design, every store size', icon: AppWindow, color: '#A78BFA' },
 ]
 
 export function ImportBackupButton() {
@@ -74,7 +75,7 @@ export function Dashboard() {
           </>
         }
       />
-      <div className="grid gap-3 px-6 sm:grid-cols-2 lg:grid-cols-4 lg:px-10">
+      <div className="grid gap-3 px-6 sm:grid-cols-2 lg:grid-cols-5 lg:px-10">
         <button
           type="button"
           onClick={() => start('google-play')}

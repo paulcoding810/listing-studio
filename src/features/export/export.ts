@@ -3,12 +3,15 @@ import { getStore, getTarget } from '@/targets'
 import { downloadBlob, slugify } from '@/lib/utils'
 import { validateOutput, type Issue } from '@/lib/validation'
 import type { Project } from '@/types/project'
+import { composeVariant, getIconVariant } from '@/features/icons'
+import { encodeRgbPng } from '@/lib/png'
 import { canvasToBlob, hasTransparency, renderPageCanvas } from './render'
 
 export interface ExportJob {
   spreadId: string
   pageIndex: number
   locale: string
+  variantId?: string
 }
 
 export interface ExportOptions {
@@ -17,6 +20,7 @@ export interface ExportOptions {
   scale: number
   naming: string
   profile: 'zip' | 'fastlane'
+  roundBrowserIcons?: boolean
 }
 
 export interface ExportedFile {
@@ -31,6 +35,11 @@ export function fileName(project: Project, job: ExportJob, opts: ExportOptions) 
   const spread = project.spreads.find((s) => s.id === job.spreadId)!
   const page = spread.pages[job.pageIndex]
   const t = getTarget(spread.targetId)
+  const variant = job.variantId ? getIconVariant(job.variantId) : undefined
+  if (variant) {
+    const raw = opts.profile === 'fastlane' && variant.fastlanePath ? variant.fastlanePath.replace('{locale}', job.locale) : variant.path
+    return spread.pages.length > 1 ? raw.replace(/(\.png)$/, `-${job.pageIndex + 1}$1`) : raw
+  }
   const multiLocale = project.locales.length > 1
   const ext = opts.format
   const name = opts.naming
@@ -56,6 +65,23 @@ export async function exportImages(project: Project, jobs: ExportJob[], opts: Ex
   let done = 0
   for (const job of jobs) {
     const spread = project.spreads.find((s) => s.id === job.spreadId)!
+    const variant = job.variantId ? getIconVariant(job.variantId) : undefined
+    if (variant) {
+      const inner = variant.size - Math.round(variant.size * variant.pad) * 2
+      const src = await renderPageCanvas(project, job.spreadId, job.pageIndex, { pixelRatio: inner / spread.width, locale: job.locale })
+      const final = composeVariant(src, variant, opts.roundBrowserIcons !== false)
+      const blob = variant.flatten ? await encodeRgbPng(final) : await canvasToBlob(final, 'png')
+      const vt = variant.targetId ? getTarget(variant.targetId) : undefined
+      out.push({
+        path: fileName(project, job, opts),
+        blob,
+        width: final.width,
+        height: final.height,
+        issues: vt ? validateOutput(vt, { width: final.width, height: final.height, format: 'png', hasAlpha: variant.flatten ? false : hasTransparency(final), bytes: blob.size }) : [],
+      })
+      onProgress?.(++done, jobs.length)
+      continue
+    }
     const t = getTarget(spread.targetId)
     const flatten = opts.format === 'jpg' || t.alpha === 'forbidden'
     const canvas = await renderPageCanvas(project, job.spreadId, job.pageIndex, { pixelRatio: opts.scale, locale: job.locale })
@@ -70,7 +96,7 @@ export async function exportImages(project: Project, jobs: ExportJob[], opts: Ex
       c.fillRect(0, 0, final.width, final.height)
       c.drawImage(canvas, 0, 0)
     }
-    const blob = await canvasToBlob(final, opts.format, opts.quality)
+    const blob = flatten && opts.format === 'png' ? await encodeRgbPng(final) : await canvasToBlob(final, opts.format, opts.quality)
     out.push({
       path: fileName(project, job, opts),
       blob,

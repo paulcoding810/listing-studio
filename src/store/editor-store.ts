@@ -5,6 +5,7 @@ import { cloneLayer, clonePage, copyStrings, deepClone, findLayer, locatePage, r
 import { createPage, createSpread, seedSpread } from '@/lib/factory'
 import { getTarget } from '@/targets'
 import { uid } from '@/lib/utils'
+import type { IconMask } from '@/features/icons'
 import type { Background, GroupLayer, Layer, Page, Project, Spread, Theme } from '@/types/project'
 
 export type ViewMode = 'page' | 'spread'
@@ -25,6 +26,7 @@ export interface EditorState {
   saveStatus: SaveStatus
   lastSavedAt?: number
   editingTextId: string | null
+  iconMask: IconMask
 
   load: (p: Project) => void
   close: () => void
@@ -39,6 +41,7 @@ export interface EditorState {
   setLocale: (l: string) => void
   setSaveStatus: (s: SaveStatus, at?: number) => void
   setEditingText: (id: string | null) => void
+  setIconMask: (m: IconMask) => void
 
   select: (ids: string[]) => void
   toggleSelect: (id: string) => void
@@ -100,6 +103,7 @@ export const useEditor = create<EditorState>()(
       activeLocale: 'en-US',
       saveStatus: 'idle',
       editingTextId: null,
+      iconMask: 'play',
 
       load: (p) =>
         set((s) => {
@@ -162,6 +166,10 @@ export const useEditor = create<EditorState>()(
       setEditingText: (id) =>
         set((s) => {
           s.editingTextId = id
+        }),
+      setIconMask: (m) =>
+        set((s) => {
+          s.iconMask = m
         }),
 
       select: (ids) =>

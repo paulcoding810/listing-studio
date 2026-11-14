@@ -6,6 +6,7 @@ import { renderPageCanvas } from '@/features/export/render'
 import { getStore, getTarget } from '@/targets'
 import { useEditor } from '@/store/editor-store'
 import { localeName } from './LocalizationDialog'
+import { APPLE_RADIUS, PLAY_RADIUS } from '@/features/icons'
 
 type Rendered = Record<string, string[]>
 
@@ -46,7 +47,11 @@ export function PreviewDialog({ open, onOpenChange, initialMode = 'gallery' }: {
   }, [open, project, locale])
 
   if (!project) return null
-  const firstStore = getTarget(project.spreads[0].targetId).store
+  const iconSpread = project.spreads.find((s) => getTarget(s.targetId).kind === 'icon')
+  const shotSpreads = project.spreads.filter((s) => s !== iconSpread)
+  const firstStore = getTarget((shotSpreads[0] ?? project.spreads[0]).targetId).store
+  const iconUrl = iconSpread ? images?.[iconSpread.id]?.[0] : undefined
+  const iconRadius = `${(firstStore === 'app-store' || firstStore === 'mac-app-store' ? APPLE_RADIUS : PLAY_RADIUS) * 100}%`
   const store = getStore(firstStore)
   const browserish = ['chrome-web-store', 'edge-addons', 'firefox-addons', 'product-hunt', 'mac-app-store', 'microsoft-store'].includes(firstStore)
 
@@ -89,7 +94,7 @@ export function PreviewDialog({ open, onOpenChange, initialMode = 'gallery' }: {
               </div>
               <div className="flex overflow-x-auto pb-3" style={{ gap: gaps ? 16 : 0 }}>
                 {images[s.id]?.map((u, i) => (
-                  <img key={i} src={u} alt={`${i + 1}`} className="shrink-0 shadow-xl shadow-black/40" style={{ height: s.width > s.height ? 300 : 560, borderRadius: gaps ? 12 : 0 }} />
+                  <img key={i} src={u} alt={`${i + 1}`} className="shrink-0 shadow-xl shadow-black/40" style={{ height: s === iconSpread ? 200 : s.width > s.height ? 300 : 560, borderRadius: s === iconSpread ? iconRadius : gaps ? 12 : 0 }} />
                 ))}
               </div>
             </div>
@@ -99,9 +104,13 @@ export function PreviewDialog({ open, onOpenChange, initialMode = 'gallery' }: {
         <div className="mx-auto max-w-4xl rounded-2xl bg-white p-6 text-slate-900 shadow-2xl">
           <p className="mb-4 rounded-md bg-slate-100 px-3 py-1.5 text-center text-[11px] text-slate-500">Approximate layout for review only. Not an actual {store.name} page.</p>
           <div className="flex items-center gap-4">
-            <div className="flex size-20 items-center justify-center rounded-2xl text-3xl font-bold text-white" style={{ background: project.theme.colors.primary }}>
-              {project.name.slice(0, 1).toUpperCase()}
-            </div>
+            {iconUrl ? (
+              <img src={iconUrl} alt="App icon" className="size-20 shadow-md" style={{ borderRadius: iconRadius }} />
+            ) : (
+              <div className="flex size-20 items-center justify-center rounded-2xl text-3xl font-bold text-white" style={{ background: project.theme.colors.primary }}>
+                {project.name.slice(0, 1).toUpperCase()}
+              </div>
+            )}
             <div className="flex-1">
               <div className="text-xl font-semibold">{project.name}</div>
               <div className="text-sm" style={{ color: project.theme.colors.primary }}>
@@ -119,7 +128,7 @@ export function PreviewDialog({ open, onOpenChange, initialMode = 'gallery' }: {
               {browserish ? 'Add to browser' : 'Install'}
             </button>
           </div>
-          {project.spreads.map((s) => (
+          {shotSpreads.map((s) => (
             <div key={s.id} className="mt-6">
               <div className="flex gap-2 overflow-x-auto pb-2">
                 {images[s.id]?.map((u, i) => (

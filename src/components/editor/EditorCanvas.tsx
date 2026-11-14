@@ -8,6 +8,8 @@ import { stageRegistry } from '@/features/canvas/stage-registry'
 import { addImage, setDeviceScreen, uploadImages } from '@/features/editor-actions'
 import { findLayer, locatePage, scaleLayer } from '@/lib/doc'
 import { useFonts } from '@/lib/fonts'
+import { maskPath } from '@/features/icons'
+import { getTarget } from '@/targets'
 import { useEditor } from '@/store/editor-store'
 import type { Layer, Spread } from '@/types/project'
 import { CanvasContextMenu } from './CanvasContextMenu'
@@ -72,6 +74,7 @@ export function EditorCanvas() {
   const locale = useEditor((s) => s.activeLocale)
   const editingTextId = useEditor((s) => s.editingTextId)
   const fontEpoch = useFonts((s) => s.epoch)
+  const iconMask = useEditor((s) => s.iconMask)
 
   const loc = project && activePageId ? locatePage(project, activePageId) : undefined
   const spread = loc?.spread
@@ -433,6 +436,7 @@ export function EditorCanvas() {
 
   if (!project || !spread || !ctx) return <div ref={containerRef} className="flex-1" />
 
+  const isIcon = getTarget(spread.targetId).kind === 'icon'
   const gridStep = Math.max(20, Math.round(spread.width / 27))
 
   return (
@@ -515,6 +519,29 @@ export function EditorCanvas() {
                   n.lineTo(contentW, contentH / 2)
                   n.stroke()
                   n.restore()
+                }}
+              />
+            )}
+            {isIcon && iconMask !== 'none' && (
+              <Shape
+                listening={false}
+                sceneFunc={(c) => {
+                  const n = c._context
+                  const pages = spreadMode ? spread.pages.length : 1
+                  for (let i = 0; i < pages; i++) {
+                    n.save()
+                    n.translate(i * spread.width, 0)
+                    maskPath(n, iconMask, spread.width)
+                    n.rect(-4, -4, spread.width + 8, spread.height + 8)
+                    n.fillStyle = 'rgba(12,14,18,0.82)'
+                    n.fill('evenodd')
+                    maskPath(n, iconMask, spread.width)
+                    n.strokeStyle = 'rgba(139,92,246,0.9)'
+                    n.lineWidth = 1.5 / zoom
+                    n.setLineDash([6 / zoom, 5 / zoom])
+                    n.stroke()
+                    n.restore()
+                  }
                 }}
               />
             )}

@@ -11,6 +11,7 @@ import { formatBytes, validateCount, validateSize } from '@/lib/validation'
 import { getStore, getTarget } from '@/targets'
 import { useEditor } from '@/store/editor-store'
 import { localeName } from './LocalizationDialog'
+import { ICON_VARIANTS, isMasterIcon } from '@/features/icons'
 import type { ExportDefaults } from '@/pages/Settings'
 
 export function ExportDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
@@ -18,7 +19,8 @@ export function ExportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
   const activePageId = useEditor((s) => s.activePageId)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [locales, setLocales] = useState<Set<string>>(new Set())
-  const [opts, setOpts] = useState<ExportOptions>({ format: 'png', quality: 0.92, scale: 1, naming: '{index}-{page}', profile: 'zip' })
+  const [variants, setVariants] = useState<Set<string>>(new Set(ICON_VARIANTS.filter((v) => v.defaultOn).map((v) => v.id)))
+  const [opts, setOpts] = useState<ExportOptions>({ format: 'png', quality: 0.92, scale: 1, naming: '{index}-{page}', profile: 'zip', roundBrowserIcons: true })
   const [busy, setBusy] = useState<{ done: number; total: number } | null>(null)
   const [results, setResults] = useState<ExportedFile[] | null>(null)
 
@@ -34,9 +36,19 @@ export function ExportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
     if (!project) return []
     const out: ExportJob[] = []
     for (const locale of project.locales.filter((l) => locales.has(l)))
-      project.spreads.forEach((s) => s.pages.forEach((p, i) => selected.has(p.id) && out.push({ spreadId: s.id, pageIndex: i, locale })))
+      project.spreads.forEach((s) => {
+        if (isMasterIcon(s.targetId)) return
+        s.pages.forEach((p, i) => selected.has(p.id) && out.push({ spreadId: s.id, pageIndex: i, locale }))
+      })
+    project.spreads.forEach((s) => {
+      if (!isMasterIcon(s.targetId)) return
+      s.pages.forEach((p, i) => {
+        if (!selected.has(p.id)) return
+        ICON_VARIANTS.filter((v) => variants.has(v.id)).forEach((v) => out.push({ spreadId: s.id, pageIndex: i, locale: project.locales[0], variantId: v.id }))
+      })
+    })
     return out
-  }, [project, selected, locales])
+  }, [project, selected, locales, variants])
 
   if (!project) return null
 
@@ -108,6 +120,45 @@ export function ExportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
           </div>
           {project.spreads.map((s) => {
             const t = getTarget(s.targetId)
+            if (isMasterIcon(s.targetId))
+              return (
+                <div key={s.id} className="rounded-lg border border-border bg-surface p-3">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <div className="text-xs font-medium">App icon · every store size from the 1024 master</div>
+                    <label className="flex cursor-pointer items-center gap-1.5 text-[11px] text-muted">
+                      <Checkbox checked={s.pages.some((p) => selected.has(p.id))} onChange={(v) => setSelected((cur) => {
+                        const n = new Set(cur)
+                        s.pages.forEach((p) => (v ? n.add(p.id) : n.delete(p.id)))
+                        return n
+                      })} />
+                      Include
+                    </label>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                    {ICON_VARIANTS.map((v) => (
+                      <label key={v.id} className="flex cursor-pointer items-center gap-1.5 text-xs text-muted">
+                        <Checkbox
+                          checked={variants.has(v.id)}
+                          onChange={() =>
+                            setVariants((cur) => {
+                              const n = new Set(cur)
+                              if (n.has(v.id)) n.delete(v.id)
+                              else n.add(v.id)
+                              return n
+                            })
+                          }
+                        />
+                        {v.label}
+                      </label>
+                    ))}
+                  </div>
+                  <label className="mt-2 flex cursor-pointer items-center gap-1.5 text-xs text-muted">
+                    <Checkbox checked={opts.roundBrowserIcons !== false} onChange={(roundBrowserIcons) => setOpts({ ...opts, roundBrowserIcons })} />
+                    Round corners on browser icons (browsers don't mask icons)
+                  </label>
+                  <p className="mt-2 text-[11px] text-subtle">Small sizes are rendered directly at their size so they stay sharp. Apple's copy is flattened to remove transparency.</p>
+                </div>
+              )
             const w = Math.round(s.width * opts.scale)
             const h = Math.round(s.height * opts.scale)
             const count = s.pages.filter((p) => selected.has(p.id)).length

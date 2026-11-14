@@ -270,7 +270,14 @@ export function seedSpread(spread: Spread, theme: Theme) {
   spread.pages.forEach((p) => {
     if (p.layers.length) return
     if (t.kind === 'icon') {
-      p.layers.push(createShape('rect', theme, { name: 'Icon tile', x: 0, y: 0, width: spread.width, height: spread.height, cornerRadius: spread.width * 0.22 }))
+      const S = spread.width
+      spread.background = {
+        fill: { kind: 'linear', angle: 135, stops: [{ offset: 0, color: theme.colors.primary, ref: 'primary' }, { offset: 1, color: theme.colors.secondary, ref: 'secondary' }] },
+      }
+      p.layers.push(
+        createShape('arc', theme, { name: 'Glyph ring', x: S * 0.25, y: S * 0.25, width: S * 0.5, height: S * 0.5, fill: { kind: 'solid', color: '#FFFFFF' } }),
+        createShape('ellipse', theme, { name: 'Glyph dot', x: S * 0.6, y: S * 0.22, width: S * 0.16, height: S * 0.16, fill: { kind: 'solid', color: theme.colors.accent, ref: 'accent' } }),
+      )
       return
     }
     p.layers.push(

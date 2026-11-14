@@ -19,6 +19,7 @@ export type TemplateCategory =
   | 'Education'
   | 'Browser Extension'
   | 'Desktop App'
+  | 'App Icon'
 
 export const CATEGORIES: TemplateCategory[] = [
   'Minimal',
@@ -33,6 +34,7 @@ export const CATEGORIES: TemplateCategory[] = [
   'Education',
   'Browser Extension',
   'Desktop App',
+  'App Icon',
 ]
 
 export interface TemplateDef {

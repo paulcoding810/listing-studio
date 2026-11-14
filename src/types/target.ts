@@ -7,6 +7,7 @@ export type StoreId =
   | 'firefox-addons'
   | 'microsoft-store'
   | 'product-hunt'
+  | 'icon'
   | 'custom'
 
 export type AssetKind = 'screenshot' | 'feature-graphic' | 'promo-tile' | 'marquee' | 'icon' | 'banner' | 'custom'

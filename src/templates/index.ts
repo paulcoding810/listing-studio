@@ -449,4 +449,106 @@ export const TEMPLATES: TemplateDef[] = [
   },
 ]
 
+
+function iconSpread(name: string, bg: Background, layers: Spread['pages'][number]['layers']): Spread {
+  return {
+    id: uid(),
+    name: 'Master icon',
+    targetId: 'icon/master',
+    width: 1024,
+    height: 1024,
+    seamless: false,
+    background: bg,
+    sharedLayers: [],
+    pages: [{ id: uid(), name, layers }],
+  }
+}
+
+const S = 1024
+const white = { kind: 'solid' as const, color: '#FFFFFF' }
+
+TEMPLATES.push(
+  {
+    id: 'icon-ring',
+    name: 'Ring Icon',
+    category: 'App Icon',
+    store: 'icon',
+    description: 'Gradient tile with a bold ring glyph. Exports Play, App Store and Chrome sizes.',
+    build() {
+      const t = theme({ primary: '#7C3AED', secondary: '#EC4899', accent: '#FDE047', background: '#1E1B4B', surface: '#312E81', text: '#FFFFFF', muted: '#E0E7FF' }, 'Poppins')
+      return {
+        theme: t,
+        spreads: [
+          iconSpread('Icon', grad(135, ['#7C3AED', 'primary'], ['#EC4899', 'secondary']), [
+            createShape('arc', t, { name: 'Ring', x: S * 0.24, y: S * 0.24, width: S * 0.52, height: S * 0.52, fill: white, shadow: shadow({ blur: 40, offsetY: 16, opacity: 0.25 }) }),
+            createShape('ellipse', t, { name: 'Dot', x: S * 0.62, y: S * 0.2, width: S * 0.17, height: S * 0.17, fill: { kind: 'solid', color: t.colors.accent, ref: 'accent' } }),
+          ]),
+        ],
+      }
+    },
+  },
+  {
+    id: 'icon-monogram',
+    name: 'Monogram Icon',
+    category: 'App Icon',
+    store: 'icon',
+    description: 'A single heavy letter on a deep gradient. Change the letter to your initial.',
+    build() {
+      const t = theme({ primary: '#0EA5E9', secondary: '#1E3A8A', accent: '#38BDF8', background: '#0B1120', surface: '#1E293B', text: '#FFFFFF', muted: '#BAE6FD' }, 'Montserrat')
+      return {
+        theme: t,
+        spreads: [
+          iconSpread('Icon', grad(160, ['#0EA5E9', 'primary'], ['#1E3A8A', 'secondary']), [
+            createText(t, { preset: 'hero', name: 'Letter', text: 'S', x: 0, y: S * 0.17, width: S, fontSize: S * 0.62, fontWeight: 900, lineHeight: 1, letterSpacing: 0, localizable: false, canvasWidth: S, shadow: shadow({ blur: 30, offsetY: 14, opacity: 0.3 }) }),
+          ]),
+        ],
+      }
+    },
+  },
+  {
+    id: 'icon-glass',
+    name: 'Glass Layers Icon',
+    category: 'App Icon',
+    store: 'icon',
+    description: 'Overlapping translucent cards on a radial glow, a modern glassy look.',
+    build() {
+      const t = theme({ primary: '#22D3EE', secondary: '#6366F1', accent: '#F472B6', background: '#0B1020', surface: '#1E293B', text: '#FFFFFF', muted: '#C7D2FE' }, 'Outfit')
+      return {
+        theme: t,
+        spreads: [
+          iconSpread('Icon', { fill: { kind: 'radial', cx: 0.3, cy: 0.25, r: 1.1, stops: [{ offset: 0, color: '#4338CA' }, { offset: 1, color: '#0B1020', ref: 'background' }] } }, [
+            createShape('rect', t, { name: 'Back card', x: S * 0.2, y: S * 0.28, width: S * 0.46, height: S * 0.46, cornerRadius: S * 0.1, rotation: -14, fill: { kind: 'linear', angle: 135, stops: [{ offset: 0, color: t.colors.primary, ref: 'primary' }, { offset: 1, color: t.colors.secondary, ref: 'secondary' }] } }),
+            createShape('rect', t, { name: 'Front card', x: S * 0.36, y: S * 0.3, width: S * 0.44, height: S * 0.44, cornerRadius: S * 0.1, rotation: 8, opacity: 0.55, fill: white, stroke: { color: 'rgba(255,255,255,0.9)', width: 6 } }),
+            createShape('star', t, { name: 'Spark', x: S * 0.5, y: S * 0.43, width: S * 0.2, height: S * 0.2, fill: { kind: 'solid', color: t.colors.accent, ref: 'accent' } }),
+          ]),
+        ],
+      }
+    },
+  },
+  {
+    id: 'icon-chat',
+    name: 'Chat Bubble Icon',
+    category: 'App Icon',
+    store: 'icon',
+    description: 'Friendly speech bubble with typing dots for messaging and social apps.',
+    build() {
+      const t = theme({ primary: '#22C55E', secondary: '#15803D', accent: '#FFFFFF', background: '#052E16', surface: '#14532D', text: '#FFFFFF', muted: '#BBF7D0' }, 'Poppins')
+      const dot = (i: number) =>
+        createShape('ellipse', t, { name: `Dot ${i + 1}`, x: S * (0.33 + i * 0.13), y: S * 0.44, width: S * 0.09, height: S * 0.09, fill: { kind: 'solid', color: t.colors.primary, ref: 'primary' } })
+      return {
+        theme: t,
+        spreads: [
+          iconSpread('Icon', grad(180, ['#22C55E', 'primary'], ['#15803D', 'secondary']), [
+            createShape('triangle', t, { name: 'Tail', x: S * 0.28, y: S * 0.6, width: S * 0.18, height: S * 0.18, rotation: 20, fill: white }),
+            createShape('ellipse', t, { name: 'Bubble', x: S * 0.2, y: S * 0.24, width: S * 0.6, height: S * 0.5, fill: white, shadow: shadow({ blur: 30, offsetY: 12, opacity: 0.2 }) }),
+            dot(0),
+            dot(1),
+            dot(2),
+          ]),
+        ],
+      }
+    },
+  },
+)
+
 export const getTemplate = (id: string) => TEMPLATES.find((t) => t.id === id)

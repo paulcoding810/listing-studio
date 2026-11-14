@@ -23,4 +23,5 @@ pnpm dev
 - `src/targets` holds store specs as data. Each entry records `sourceUrl` and `verifiedAt`; a unit test fails once any entry is a year old.
 - `src/features/canvas` renders the document with React-Konva. The same scene renders offscreen for export and thumbnails.
 - `src/store/editor-store.ts` is the editor state with undo/redo via zundo.
+- `src/features/icons.ts` defines the app icon export sizes and store masks. One 1024 master renders each size directly.
 - `src/templates` builds editable templates from JSON-like specs. Demo app screens are drawn procedurally in `src/demo`.

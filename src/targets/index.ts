@@ -6,6 +6,9 @@ const CWS = 'https://developer.chrome.com/docs/webstore/images'
 const EDGE = 'https://learn.microsoft.com/microsoft-edge/extensions/publish/publish-extension'
 const AMO = 'https://extensionworkshop.com/documentation/develop/create-an-appealing-listing/'
 const MS = 'https://learn.microsoft.com/windows/apps/publish/publish-your-app/msix/screenshots-and-images'
+const PLAY_ICON = 'https://developer.android.com/google-play/resources/icon-design-specifications'
+const APPLE_ICON = 'https://developer.apple.com/design/human-interface-guidelines/app-icons'
+const CHROME_ICON = 'https://developer.chrome.com/docs/webstore/images#icons'
 const PH = 'https://help.producthunt.com/en/articles/479557-how-to-post-a-product'
 const VERIFIED = '2026-11-14'
 
@@ -20,6 +23,7 @@ export const STORES: StoreInfo[] = [
   { id: 'edge-addons', name: 'Edge Add-ons', short: 'Edge', tier: 2, color: '#0FB5AE' },
   { id: 'firefox-addons', name: 'Firefox Add-ons', short: 'Firefox', tier: 2, color: '#FF7139' },
   { id: 'product-hunt', name: 'Product Hunt', short: 'PH', tier: 2, color: '#DA552F' },
+  { id: 'icon', name: 'App icon', short: 'Icon', tier: 1, color: '#A78BFA' },
   { id: 'custom', name: 'Custom size', short: 'Custom', tier: 3, color: '#8B5CF6' },
 ]
 
@@ -112,7 +116,7 @@ export const TARGETS: TargetSpec[] = [
     store: 'google-play',
     kind: 'icon',
     label: 'App icon',
-    description: '512×512 32-bit PNG, up to 1 MB.',
+    description: '512×512 32-bit PNG, up to 1 MB. Upload a full square: Play rounds corners at 30% and adds its own shadow.',
     defaultSize: { w: 512, h: 512 },
     sizes: [{ w: 512, h: 512 }],
     formats: ['png'],
@@ -121,7 +125,7 @@ export const TARGETS: TargetSpec[] = [
     maxBytes: 1024 * 1024,
     frame: 'none',
     fastlaneDir: 'metadata/android/{locale}/images/icon',
-    sourceUrl: PLAY,
+    sourceUrl: PLAY_ICON,
     verifiedAt: VERIFIED,
   },
   {
@@ -169,6 +173,21 @@ export const TARGETS: TargetSpec[] = [
     frame: 'ipad',
     fastlaneDir: 'fastlane/screenshots/{locale}',
     sourceUrl: APPLE,
+    verifiedAt: VERIFIED,
+  },
+  {
+    id: 'app-store/icon',
+    store: 'app-store',
+    kind: 'icon',
+    label: 'App icon',
+    description: '1024×1024 opaque PNG with square corners. Apple applies the rounded mask.',
+    defaultSize: { w: 1024, h: 1024 },
+    sizes: [{ w: 1024, h: 1024 }],
+    formats: ['png'],
+    alpha: 'forbidden',
+    count: { min: 1, max: 1 },
+    frame: 'none',
+    sourceUrl: APPLE_ICON,
     verifiedAt: VERIFIED,
   },
   {
@@ -233,13 +252,14 @@ export const TARGETS: TargetSpec[] = [
     store: 'chrome-web-store',
     kind: 'icon',
     label: 'Store icon',
+    description: '128×128 PNG: 96×96 artwork with 16px transparent padding on each side.',
     defaultSize: { w: 128, h: 128 },
     sizes: [{ w: 128, h: 128 }],
     formats: ['png'],
     alpha: 'allowed',
     count: { min: 1, max: 1 },
     frame: 'none',
-    sourceUrl: CWS,
+    sourceUrl: CHROME_ICON,
     verifiedAt: VERIFIED,
   },
   {
@@ -324,6 +344,21 @@ export const TARGETS: TargetSpec[] = [
     alpha: 'allowed',
     frame: 'browser',
     sourceUrl: PH,
+    verifiedAt: VERIFIED,
+  },
+  {
+    id: 'icon/master',
+    store: 'icon',
+    kind: 'icon',
+    label: 'Master icon',
+    description: 'Design once at 1024×1024. Export produces every store size, padding and format.',
+    defaultSize: { w: 1024, h: 1024 },
+    sizes: [{ w: 1024, h: 1024 }],
+    formats: ['png'],
+    alpha: 'allowed',
+    count: { min: 1, max: 1 },
+    frame: 'none',
+    sourceUrl: PLAY_ICON,
     verifiedAt: VERIFIED,
   },
   {

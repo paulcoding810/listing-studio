@@ -24,3 +24,14 @@ describe('fileName', () => {
     )
   })
 })
+
+describe('icon variant paths', () => {
+  it('uses fixed store paths and the fastlane icon location', async () => {
+    const { createBlankProject } = await import('@/lib/factory')
+    const p = createBlankProject('Icon', 'icon/master', 1)
+    const id = p.spreads[0].id
+    const base = { format: 'png' as const, quality: 1, scale: 1, naming: '{index}', profile: 'zip' as const }
+    expect(fileName(p, { spreadId: id, pageIndex: 0, locale: 'en-US', variantId: 'chrome' }, base)).toBe('chrome-web-store/icon-128.png')
+    expect(fileName(p, { spreadId: id, pageIndex: 0, locale: 'en-US', variantId: 'play' }, { ...base, profile: 'fastlane' })).toBe('metadata/android/en-US/images/icon.png')
+  })
+})
