@@ -415,7 +415,7 @@ function DeviceSection({ l }: { l: DeviceLayer }) {
           <ScreenPicker value={l.screenAssetId} onPick={(screenAssetId) => upd(l.id, { screenAssetId })} />
         </Row>
         <Row label="Fit">
-          <Segmented value={l.screenFit} onChange={(screenFit) => upd(l.id, { screenFit })} options={[{ value: 'cover', label: 'Fill screen' }, { value: 'contain', label: 'Fit inside' }]} />
+          <Segmented value={l.screenFit} onChange={(screenFit) => upd(l.id, { screenFit })} options={[{ value: 'cover', label: 'Fill' }, { value: 'contain', label: 'Fit' }]} />
         </Row>
         <ColorField label="Screen bg" value={l.screenColor} onChange={(screenColor) => upd(l.id, { screenColor })} allowAlpha={false} />
       </Section>

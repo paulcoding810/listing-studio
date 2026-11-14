@@ -2,11 +2,11 @@ import type { Perspective, PerspectivePreset } from '@/types/project'
 
 export const PERSPECTIVE_PRESETS: Record<Exclude<PerspectivePreset, 'custom'>, Omit<Perspective, 'preset'>> = {
   straight: { rotateX: 0, rotateY: 0, depth: 3 },
-  slight: { rotateX: 4, rotateY: -10, depth: 3 },
-  left: { rotateX: 0, rotateY: 28, depth: 2.4 },
-  right: { rotateX: 0, rotateY: -28, depth: 2.4 },
-  floating: { rotateX: 14, rotateY: -14, depth: 2.6 },
-  dramatic: { rotateX: 20, rotateY: -38, depth: 1.8 },
+  slight: { rotateX: 6, rotateY: -14, depth: 2.2 },
+  left: { rotateX: 0, rotateY: 34, depth: 1.5 },
+  right: { rotateX: 0, rotateY: -34, depth: 1.5 },
+  floating: { rotateX: 18, rotateY: -18, depth: 1.8 },
+  dramatic: { rotateX: 22, rotateY: -44, depth: 1.2 },
 }
 
 export const isFlat = (p: Perspective) => Math.abs(p.rotateX) < 0.1 && Math.abs(p.rotateY) < 0.1

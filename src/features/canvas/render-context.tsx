@@ -1,3 +1,4 @@
+import type Konva from 'konva'
 import { createContext, useContext } from 'react'
 import type { Layer, Project, TextLayer } from '@/types/project'
 
@@ -9,6 +10,8 @@ export interface RenderCtx {
   selected: ReadonlySet<string>
   editingTextId: string | null
   fontEpoch: number
+  onDragMove?: (e: Konva.KonvaEventObject<DragEvent>) => void
+  onDragEnd?: (e: Konva.KonvaEventObject<DragEvent>) => void
 }
 
 export const RenderContext = createContext<RenderCtx | null>(null)

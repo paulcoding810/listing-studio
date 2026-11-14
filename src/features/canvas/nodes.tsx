@@ -41,6 +41,8 @@ export function LayerNode({ layer, siblings, inGroup }: { layer: Layer; siblings
       visible={layer.visible}
       draggable={ctx.interactive && !layer.locked && (!inGroup || selected)}
       listening={ctx.interactive && !layer.locked}
+      onDragMove={ctx.onDragMove}
+      onDragEnd={ctx.onDragEnd}
     >
       <LayerContent layer={layer} siblings={siblings} />
     </Group>

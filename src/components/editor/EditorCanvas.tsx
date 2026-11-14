@@ -139,6 +139,8 @@ export function EditorCanvas() {
             selected: selectedSet,
             editingTextId,
             fontEpoch,
+            onDragMove: (e) => dragMoveRef.current(e),
+            onDragEnd: (e) => dragEndRef.current(e),
           }
         : null,
     [project, locale, zoom, selectedSet, editingTextId, fontEpoch],
@@ -233,6 +235,11 @@ export function EditorCanvas() {
     })
     st.updateLayers(patches)
   }
+
+  const dragMoveRef = useRef(onDragMove)
+  const dragEndRef = useRef(onDragEnd)
+  dragMoveRef.current = onDragMove
+  dragEndRef.current = onDragEnd
 
   const onTransform = () => {
     const tr = trRef.current
@@ -451,8 +458,6 @@ export function EditorCanvas() {
         onMouseDown={onMouseDown}
         onDblClick={onDblClick}
         onWheel={onWheel}
-        onDragMove={onDragMove}
-        onDragEnd={onDragEnd}
         onMouseOver={onMouseOver}
         onMouseLeave={() => hoverRef.current?.visible(false)}
       >

@@ -264,17 +264,39 @@ export function createProject(name: string, spreads: Spread[], theme: Theme = DE
   }
 }
 
-export function createBlankProject(name: string, targetId: string, pages = 1, theme = DEFAULT_THEME): Project {
-  const spread = createSpread(targetId, theme, pages)
-  const t = getTarget(targetId)
+export function seedSpread(spread: Spread, theme: Theme) {
+  const t = getTarget(spread.targetId)
+  const landscape = spread.width > spread.height * 1.2
   spread.pages.forEach((p) => {
+    if (p.layers.length) return
+    if (t.kind === 'icon') {
+      p.layers.push(createShape('rect', theme, { name: 'Icon tile', x: 0, y: 0, width: spread.width, height: spread.height, cornerRadius: spread.width * 0.22 }))
+      return
+    }
     p.layers.push(
-      createText(theme, { preset: 'heading', canvasWidth: spread.width, y: Math.round(spread.height * 0.07), text: 'Your headline here' }),
+      createText(theme, {
+        preset: 'heading',
+        canvasWidth: spread.width,
+        y: Math.round(spread.height * (landscape ? 0.1 : 0.07)),
+        text: 'Your headline here',
+        ...(landscape ? { x: Math.round(spread.width * 0.06), width: Math.round(spread.width * 0.5), align: 'left' as const, fontSize: Math.round(spread.height * 0.11) } : {}),
+      }),
     )
     if (t.frame !== 'none') {
       const f = frameForPlatform(t.frame)
-      p.layers.push(createDevice(f.id, spread.width, spread.height))
+      const d = createDevice(f.id, spread.width, spread.height)
+      if (landscape && deviceAspect(f) < 1) {
+        d.height = Math.round(spread.height * 1.05)
+        d.width = Math.round(d.height * deviceAspect(f))
+        d.x = Math.round(spread.width * 0.66)
+        d.y = Math.round(spread.height * 0.12)
+      }
+      p.layers.push(d)
     }
   })
-  return createProject(name, [spread], theme)
+  return spread
+}
+
+export function createBlankProject(name: string, targetId: string, pages = 1, theme = DEFAULT_THEME): Project {
+  return createProject(name, [seedSpread(createSpread(targetId, theme, pages), theme)], theme)
 }

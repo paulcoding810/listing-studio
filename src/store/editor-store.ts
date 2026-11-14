@@ -1,8 +1,8 @@
 import { create, useStore } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 import { temporal } from 'zundo'
-import { cloneLayer, clonePage, copyStrings, findLayer, locatePage, remapZoomSources, retargetSpread, walkLayers } from '@/lib/doc'
-import { createPage, createSpread } from '@/lib/factory'
+import { cloneLayer, clonePage, copyStrings, deepClone, findLayer, locatePage, remapZoomSources, retargetSpread, walkLayers } from '@/lib/doc'
+import { createPage, createSpread, seedSpread } from '@/lib/factory'
 import { getTarget } from '@/targets'
 import { uid } from '@/lib/utils'
 import type { Background, GroupLayer, Layer, Page, Project, Spread, Theme } from '@/types/project'
@@ -263,7 +263,7 @@ export const useEditor = create<EditorState>()(
           const ordered = locs.sort((a, b) => container.indexOf(a.layer) - container.indexOf(b.layer))
           const insertAt = container.indexOf(ordered[ordered.length - 1].layer)
           const children = ordered.map((l) => {
-            const c = structuredClone(l.layer) as Layer
+            const c = deepClone(l.layer) as Layer
             c.x -= bbox.x
             c.y -= bbox.y
             return c
@@ -295,7 +295,7 @@ export const useEditor = create<EditorState>()(
           const g = loc.layer
           const r = (g.rotation * Math.PI) / 180
           const kids = g.children.map((c) => {
-            const k = structuredClone(c) as Layer
+            const k = deepClone(c) as Layer
             k.x = g.x + c.x * Math.cos(r) - c.y * Math.sin(r)
             k.y = g.y + c.x * Math.sin(r) + c.y * Math.cos(r)
             k.rotation = c.rotation + g.rotation
@@ -418,8 +418,8 @@ export const useEditor = create<EditorState>()(
         set((s) => {
           const p = s.project as Project | null
           if (!p) return
-          const sp = createSpread(targetId, p.theme, pages)
-          sp.background = structuredClone(p.spreads[0]?.background ?? sp.background)
+          const sp = seedSpread(createSpread(targetId, p.theme, pages), p.theme)
+          sp.background = deepClone(p.spreads[0]?.background ?? sp.background)
           p.spreads.push(sp)
           s.activePageId = sp.pages[0].id
           s.selectedIds = []
@@ -463,7 +463,7 @@ export const useEditor = create<EditorState>()(
           const sp = s.project?.spreads.find((x) => x.id === spreadId)
           const pg = sp?.pages.find((x) => x.id === pageId)
           if (!sp || !pg) return
-          const bg = structuredClone(pg.background ?? sp.background)
+          const bg = deepClone(pg.background ?? sp.background)
           sp.background = bg
           sp.pages.forEach((x) => delete x.background)
         }),

@@ -53,7 +53,7 @@ export function TemplateCard({ t }: { t: TemplateDef }) {
           </span>
         </div>
         <div className="mt-0.5 text-[11px] text-subtle">
-          {t.category} · {pageCount(t)} images
+          {t.category} · {pageCount(t)} {pageCount(t) === 1 ? 'image' : 'images'}
         </div>
       </div>
       <TemplatePreviewDialog t={t} open={preview} onOpenChange={setPreview} />

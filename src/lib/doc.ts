@@ -1,5 +1,10 @@
+import { current, isDraft } from 'immer'
 import { uid } from '@/lib/utils'
 import type { Layer, Page, Project, Spread } from '@/types/project'
+
+export function deepClone<T>(v: T): T {
+  return structuredClone(isDraft(v) ? (current(v as never) as T) : v)
+}
 
 export interface LayerLocation {
   layer: Layer
@@ -58,7 +63,7 @@ export function collectAssetIds(project: Project): string[] {
 }
 
 export function cloneLayer(l: Layer, idMap?: Map<string, string>): Layer {
-  const copy = structuredClone(l)
+  const copy = deepClone(l)
   const reid = (x: Layer) => {
     const nid = uid()
     idMap?.set(x.id, nid)
@@ -80,7 +85,7 @@ export function clonePage(p: Page, strings?: Project['strings']): Page {
   const layers = p.layers.map((l) => cloneLayer(l, idMap))
   remapZoomSources(layers, idMap)
   if (strings) copyStrings(strings, idMap)
-  return { ...structuredClone(p), id: uid(), name: `${p.name} copy`, layers }
+  return { ...deepClone(p), id: uid(), name: `${p.name} copy`, layers }
 }
 
 export function copyStrings(strings: Project['strings'], idMap: Map<string, string>) {
@@ -90,7 +95,7 @@ export function copyStrings(strings: Project['strings'], idMap: Map<string, stri
 }
 
 export function cloneProject(p: Project, name: string): Project {
-  const copy = structuredClone(p)
+  const copy = deepClone(p)
   const idMap = new Map<string, string>()
   copy.spreads.forEach((s) => {
     s.id = uid()
