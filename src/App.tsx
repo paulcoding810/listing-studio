@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react'
-import { createBrowserRouter, RouterProvider } from 'react-router'
+import { createHashRouter, RouterProvider } from 'react-router'
 import { AppShell } from '@/components/dashboard/AppShell'
 import { Toaster } from '@/components/ui/toast'
 import { TooltipProvider } from '@/components/ui/primitives'
@@ -14,7 +14,7 @@ import { useProjects } from '@/store/project-store'
 
 const Editor = lazy(() => import('@/pages/Editor').then((m) => ({ default: m.Editor })))
 
-const router = createBrowserRouter([
+const router = createHashRouter([
   {
     element: <AppShell />,
     children: [

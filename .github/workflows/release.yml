@@ -34,6 +34,10 @@ jobs:
           fi
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
+      - name: Upload site for GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
       - name: Package static site
         run: |
           cd dist
@@ -46,3 +50,19 @@ jobs:
             --title "Listing Studio $GITHUB_REF_NAME" \
             --generate-notes \
             $([[ "$GITHUB_REF_NAME" == *-* ]] && echo --prerelease)
+
+  pages:
+    name: Deploy to GitHub Pages
+    needs: release
+    if: ${{ !contains(github.ref_name, '-') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

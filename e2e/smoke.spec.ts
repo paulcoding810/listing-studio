@@ -4,11 +4,11 @@ test('apply a template, edit, and export a validated ZIP', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', (e) => errors.push(e.message))
 
-  await page.goto('/templates')
+  await page.goto('/#/templates')
   const card = page.locator('text=Clean Minimal').locator('xpath=ancestor::div[contains(@class,"group")][1]')
   await card.hover()
   await card.getByRole('button', { name: 'Use template' }).click()
-  await page.waitForURL(/\/editor\//)
+  await page.waitForURL(/#\/editor\//)
   await expect(page.getByText('Meets Google Play requirements')).toBeVisible()
 
   const box = (await page.locator('canvas').first().boundingBox())!

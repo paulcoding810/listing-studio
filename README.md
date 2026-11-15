@@ -37,3 +37,5 @@ git tag v0.1.0 && git push origin v0.1.0
 ```
 
 `.github/workflows/release.yml` reruns CI, checks the tag matches the package version, builds, and publishes a GitHub Release with the static site zipped. Tags with a suffix such as `v0.2.0-beta.1` become pre-releases.
+
+Each stable release also deploys the site to GitHub Pages. Pre-release tags skip that step. One-time setup: in the repository's Settings → Pages, set Source to **GitHub Actions**. The app uses hash URLs (`#/editor/<id>`) and relative asset paths, so the same build works on Pages, a custom domain or any static host. Projects are stored per origin, so pick the final domain before people start using it.
