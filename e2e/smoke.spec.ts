@@ -13,8 +13,8 @@ test('apply a template, edit, and export a validated ZIP', async ({ page }) => {
 
   const box = (await page.locator('canvas').first().boundingBox())!
   await page.mouse.click(box.x + box.width / 2, box.y + box.height * 0.65)
-  await page.keyboard.press('Meta+d')
-  await page.keyboard.press('Meta+z')
+  await page.keyboard.press('ControlOrMeta+d')
+  await page.keyboard.press('ControlOrMeta+z')
 
   await page.getByRole('button', { name: 'Export', exact: true }).click()
   const download = page.waitForEvent('download')

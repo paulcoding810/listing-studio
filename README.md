@@ -25,3 +25,15 @@ pnpm dev
 - `src/store/editor-store.ts` is the editor state with undo/redo via zundo.
 - `src/features/icons.ts` defines the app icon export sizes and store masks. One 1024 master renders each size directly.
 - `src/templates` builds editable templates from JSON-like specs. Demo app screens are drawn procedurally in `src/demo`.
+
+## CI and releases
+
+GitHub Actions runs `.github/workflows/ci.yml` on every push to `main` and on pull requests: typecheck, lint, unit tests, build, and the Playwright smoke test.
+
+To release, bump `version` in `package.json`, commit, then push a matching tag:
+
+```sh
+git tag v0.1.0 && git push origin v0.1.0
+```
+
+`.github/workflows/release.yml` reruns CI, checks the tag matches the package version, builds, and publishes a GitHub Release with the static site zipped. Tags with a suffix such as `v0.2.0-beta.1` become pre-releases.
